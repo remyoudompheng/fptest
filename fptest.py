@@ -10,20 +10,25 @@ def main():
     for e2=827, e10=249, digs=14236688121214300 / mant=15907522898771511
     ε' = 2**827/10**249 - digs/mant = 5.765155354479547e-32
     """
+    MODES = [
+        "parse64+", "parse64-",
+        "parse32+", "parse32-",
+        "print64+", "print64-",
+        "print32+", "print32-",
+    ]
     import argparse
     p = argparse.ArgumentParser()
-    p.add_argument("MODE", choices=("print64+", "print64-",
-        "print32+", "print32-"), nargs='?')
+    p.add_argument("MODE", choices=MODES, nargs='?')
     args = p.parse_args()
     arg = args.MODE
 
-    if not arg or arg == "print64+":
+    if not arg or arg == "parse64+":
         # 680k values
         for e2 in range(50, 1024-52):
             e10 = (e2 * 78913) >> 18
             find_hard_parse(e2, e10+1, mantbits=54, prec=96)
 
-    if not arg or arg == "print64-":
+    if not arg or arg == "parse64-":
         # 600k values
         for e2 in range(20, 1024+52):
             e10 = (e2 * 78913) >> 18
@@ -33,14 +38,31 @@ def main():
             else:
                 find_hard_parse_negexp(e2, e10, mantbits=54, prec=96)
 
+    if not arg or arg == "print64+":
+        # 275k values
+        for e2 in range(30, 1024-52):
+            e10 = (e2 * 78913) >> 18
+            find_hard_print(e2, e10+1, mantbits=53, prec=96)
+
+    if not arg or arg == "print64-":
+        # 500k values
+        for e2 in range(53, 1024+52):
+            e10 = (e2 * 78913) >> 18
+            if e2 == 1075:
+                # denormals
+                e2 = 1074
+                find_hard_print_negexp(e2, e10, mantbits=52, prec=96, denormal=True)
+            else:
+                find_hard_print_negexp(e2, e10, mantbits=53, prec=96)
+
     # For float32, check values where 52 bit precision is not enough.
-    if not arg or arg == "print32+":
+    if not arg or arg == "parse32+":
         # 138 values
         for e2 in range(24, 128-23):
             e10 = (e2 * 78913) >> 18
             find_hard_parse(e2, e10+1, mantbits=25, prec=52)
 
-    if not arg or arg == "print32-":
+    if not arg or arg == "parse32-":
         # 145 values
         for e2 in range(16, 128+23):
             e10 = (e2 * 78913) >> 18
@@ -49,6 +71,23 @@ def main():
                 find_hard_parse_negexp(e2, e10+1, mantbits=24, prec=52, denormal=True)
             else:
                 find_hard_parse_negexp(e2, e10+1, mantbits=25, prec=52)
+
+    if not arg or arg == "print32+":
+        for e2 in range(24, 128-23):
+            e10 = (e2 * 78913) >> 18
+            find_hard_print(e2, e10+1, mantbits=24, prec=48)
+
+    if not arg or arg == "print32-":
+        # 500k values
+        for e2 in range(24, 128+23):
+            e10 = (e2 * 78913) >> 18
+            if e2 == 150:
+                # denormals
+                e2 = 149
+                find_hard_print_negexp(e2, e10-1, mantbits=23, prec=48, denormal=True)
+            else:
+                find_hard_print_negexp(e2, e10, mantbits=24, prec=48)
+
 
 def find_hard_parse(e2, e10, mantbits=54, prec=96):
     """
@@ -74,7 +113,7 @@ def find_hard_parse(e2, e10, mantbits=54, prec=96):
 
     that is:
         2**385 / 10**116 = digits / mantissa + ε'
-    
+
     The typical threshold we are interested in is
        ε = 10**16 / 2**63 (rounding error in 64-bit arithmetic)
     or ε' = 10**16 / 2**(63+53)
@@ -146,6 +185,77 @@ def find_hard_parse_negexp(e2, e10, mantbits=54, prec=96, denormal=False):
                         m, d, e10, m, e2, decimal))
                 m += 2*mant
                 d += 2*digs
+
+def find_hard_print(e2, e10, mantbits=53, prec=96):
+    """
+    Like find_hard_parse but now we are looking for:
+
+        mantissa × 2**e2 × 10**-e10 = digits + 1/2 + ε
+
+    where ε is very small.
+
+    The fractions we are looking for are:
+
+        (2*digits+1) / (2*mantissa)
+    """
+    BOUND = 2**(1+mantbits)
+
+    if e2 < prec:
+        n1, d1 = approx(2**prec - 1, 10**e10 * 2**(prec-e2), bound=BOUND)
+        n2, d2 = approx(2**prec + 1, 10**e10 * 2**(prec-e2), bound=BOUND)
+    else:
+        n1, d1 = approx(2**e2 - 2**(e2-prec), 10**e10, bound=BOUND)
+        n2, d2 = approx(2**e2 + 2**(e2-prec), 10**e10, bound=BOUND)
+    #print("bounds 2**{}/10**{}: {}/{} -> {}/{}".format(
+    #    e2, e10, n1, d1, n2, d2))
+    for x, y in walk(n1, d1, n2, d2, bound=BOUND):
+        digs, mant = x, y
+        # try odd multiples
+        if mant & 1 == 0 and digs & 1 == 1:
+            m = mant
+            d = digs
+            while m.bit_length() <= mantbits+1:
+                if m.bit_length() == mantbits+1:
+                    decimal = str(m << (e2-1))
+                    if e10 > 20:
+                        decimal = decimal[:20-e10] + "..."
+                    print('{:17} {:17}e+{:03} {:17}p+{} = {:>45}'.format(
+                        m // 2, d // 2, e10, m // 2, e2, decimal))
+                m += 2*mant
+                d += 2*digs
+
+        # epsilon
+        #epsilon = (2**e2 * mant - 10**e10 * digs) / (10**e10 * mant)
+        #print("epsilon =", epsilon)
+
+def find_hard_print_negexp(e2, e10, mantbits=53, prec=96, denormal=False):
+    BOUND = 2**(1+mantbits)
+
+    if e10 < prec:
+        # multiply by 2**(prec-e10)
+        n1, d1 = approx(10**e10 * 2**(prec-e10) - 5**e10, 2**(e2+prec-e10), bound=BOUND)
+        n2, d2 = approx(10**e10 * 2**(prec-e10) + 5**e10, 2**(e2+prec-e10), bound=BOUND)
+    else:
+        n1, d1 = approx(10**e10 - (10**e10 >> prec), 2**e2, bound=BOUND)
+        n2, d2 = approx(10**e10 + (10**e10 >> prec), 2**e2, bound=BOUND)
+
+    for x, y in walk(n1, d1, n2, d2, bound=BOUND):
+        digs, mant = x, y
+        # try odd multiples
+        if mant & 1 == 0 and digs & 1 == 1:
+            m = mant
+            d = digs
+            while m.bit_length() <= mantbits+1:
+                if denormal or m.bit_length() == mantbits+1:
+                    decimal = str((m//2) * 5**e2)
+                    if e2 > 36:
+                        trim = ((e2-30)*7) // 10
+                        decimal = decimal[:-trim] + "..."
+                    print('{:17} {:17}e-{:03} {:17}p-{} = {:>45}'.format(
+                        m // 2, d // 2, e10, m // 2, e2, decimal))
+                m += 2*mant
+                d += 2*digs
+
 
 def walk(x1, y1, x2, y2, bound):
     """
