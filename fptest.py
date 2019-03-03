@@ -12,7 +12,8 @@ def main():
     """
     import argparse
     p = argparse.ArgumentParser()
-    p.add_argument("MODE", choices=("", "print64+", "print64-"))
+    p.add_argument("MODE", choices=("print64+", "print64-",
+        "print32+", "print32-"), nargs='?')
     args = p.parse_args()
     arg = args.MODE
 
@@ -20,15 +21,28 @@ def main():
         # 680k values
         for e2 in range(50, 1024-52):
             e10 = (e2 * 78913) >> 18
-            find_hard_printf(e2, e10+1)
+            find_hard_printf(e2, e10+1, mantbits=54, prec=96)
 
     if not arg or arg == "print64-":
         # 600k values
         for e2 in range(20, 1024+52):
             e10 = (e2 * 78913) >> 18
-            find_hard_printf_negexp(e2, e10)
+            find_hard_printf_negexp(e2, e10, mantbits=54, prec=96)
 
-def find_hard_printf(e2, e10):
+    # For float32, check values where 52 bit precision is not enough.
+    if not arg or arg == "print32+":
+        # 138 values
+        for e2 in range(24, 128-23):
+            e10 = (e2 * 78913) >> 18
+            find_hard_printf(e2, e10+1, mantbits=25, prec=52)
+
+    if not arg or arg == "print32-":
+        # 145 values
+        for e2 in range(16, 128+23):
+            e10 = (e2 * 78913) >> 18
+            find_hard_printf_negexp(e2, e10+1, mantbits=25, prec=52)
+
+def find_hard_printf(e2, e10, mantbits=54, prec=96):
     """
     e.g. find floating-point numbers with exponent 385 hard to print.
 
@@ -52,25 +66,25 @@ def find_hard_printf(e2, e10):
     or ε' = 10**16 / 2**(63+53)
     which gives about (1e16)*(2**54)*ε' = 2e13 candidates.
 
-    Let's focus on rounding error at 96-bit precision,
+    If we focus on rounding error at 96-bit precision,
     (± 1e16 / 2**(96+53)) which yields about 5000 candidates.
     """
-    if e2 < 96:
-        n1, d1 = approx(2**96 - 1, 10**e10 * 2**(96-e2), bound=2**54)
-        n2, d2 = approx(2**96 + 1, 10**e10 * 2**(96-e2), bound=2**54)
+    if e2 < prec:
+        n1, d1 = approx(2**prec - 1, 10**e10 * 2**(prec-e2), bound=2**mantbits)
+        n2, d2 = approx(2**prec + 1, 10**e10 * 2**(prec-e2), bound=2**mantbits)
     else:
-        n1, d1 = approx(2**e2 - 2**(e2-96), 10**e10, bound=2**54)
-        n2, d2 = approx(2**e2 + 2**(e2-96), 10**e10, bound=2**54)
+        n1, d1 = approx(2**e2 - 2**(e2-prec), 10**e10, bound=2**mantbits)
+        n2, d2 = approx(2**e2 + 2**(e2-prec), 10**e10, bound=2**mantbits)
     #print("bounds 2**{}/10**{}: {}/{} -> {}/{}".format(
     #    e2, e10, n1, d1, n2, d2))
-    for x, y in walk(n1, d1, n2, d2, bound=2**54):
+    for x, y in walk(n1, d1, n2, d2, bound=2**mantbits):
         digs, mant = x, y
         # try odd multiples
         if mant % 2 == 1:
             m = mant
             d = digs
-            while m.bit_length() <= 54:
-                if m.bit_length() == 54:
+            while m.bit_length() <= mantbits:
+                if m.bit_length() == mantbits:
                     decimal = str(m << e2)
                     if e10 > 20:
                         decimal = decimal[:20-e10] + "..."
@@ -86,7 +100,7 @@ def find_hard_printf(e2, e10):
         #epsilon = (2**e2 * mant - 10**e10 * digs) / (10**e10 * mant)
         #print("epsilon =", epsilon)
 
-def find_hard_printf_negexp(e2, e10):
+def find_hard_printf_negexp(e2, e10, mantbits=54, prec=96):
     """
     Like find_hard_printf but for negative exponents
 
@@ -94,22 +108,22 @@ def find_hard_printf_negexp(e2, e10):
         mantissa / 2**e2 = digits / 10**e10 + ε
         10**e10 / 2**e2 = digits / mantissa + ε'
     """
-    if e10 < 96:
-        # multiply by 2**(96-e10)
-        n1, d1 = approx(10**e10 * 2**(96-e10) - 5**e10, 2**(e2+96-e10), bound=2**54)
-        n2, d2 = approx(10**e10 * 2**(96-e10) + 5**e10, 2**(e2+96-e10), bound=2**54)
+    if e10 < prec:
+        # multiply by 2**(prec-e10)
+        n1, d1 = approx(10**e10 * 2**(prec-e10) - 5**e10, 2**(e2+prec-e10), bound=2**mantbits)
+        n2, d2 = approx(10**e10 * 2**(prec-e10) + 5**e10, 2**(e2+prec-e10), bound=2**mantbits)
     else:
-        n1, d1 = approx(10**e10 - (10**e10 >> 96), 2**e2, bound=2**54)
-        n2, d2 = approx(10**e10 + (10**e10 >> 96), 2**e2, bound=2**54)
+        n1, d1 = approx(10**e10 - (10**e10 >> prec), 2**e2, bound=2**mantbits)
+        n2, d2 = approx(10**e10 + (10**e10 >> prec), 2**e2, bound=2**mantbits)
 
-    for x, y in walk(n1, d1, n2, d2, bound=2**54):
+    for x, y in walk(n1, d1, n2, d2, bound=2**mantbits):
         digs, mant = x, y
         # try odd multiples
         if mant % 2 == 1:
             m = mant
             d = digs
-            while m.bit_length() <= 54:
-                if m.bit_length() == 54:
+            while m.bit_length() <= mantbits:
+                if m.bit_length() == mantbits:
                     decimal = str(m * 5**e2)
                     if e2 > 30:
                         trim = ((e2-30)*7) // 10

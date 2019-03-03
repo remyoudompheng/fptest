@@ -69,6 +69,10 @@ The Python script takes about 1 minute to enumerate double-precision
 floats (float64) such that formatting in decimal form is hard
 even using 96-bit arithmetic (about 1 million values).
 
+It takes less than a second to enumerate the single-precision
+(float32) values that are hard to format when using 52-bit arithmetic
+(about 280 values).
+
 ## References
 
 - [Wikipedia (Stern-Brocot Tree)](https://en.wikipedia.org/wiki/Stern%E2%80%93Brocot_tree)
