@@ -21,42 +21,56 @@ def main():
         # 680k values
         for e2 in range(50, 1024-52):
             e10 = (e2 * 78913) >> 18
-            find_hard_printf(e2, e10+1, mantbits=54, prec=96)
+            find_hard_parse(e2, e10+1, mantbits=54, prec=96)
 
     if not arg or arg == "print64-":
         # 600k values
         for e2 in range(20, 1024+52):
             e10 = (e2 * 78913) >> 18
-            find_hard_printf_negexp(e2, e10, mantbits=54, prec=96)
+            if e2 == 1075:
+                # denormals have exponent p-1074 so midpoint have p-1075
+                find_hard_parse_negexp(e2, e10, mantbits=53, prec=96, denormal=True)
+            else:
+                find_hard_parse_negexp(e2, e10, mantbits=54, prec=96)
 
     # For float32, check values where 52 bit precision is not enough.
     if not arg or arg == "print32+":
         # 138 values
         for e2 in range(24, 128-23):
             e10 = (e2 * 78913) >> 18
-            find_hard_printf(e2, e10+1, mantbits=25, prec=52)
+            find_hard_parse(e2, e10+1, mantbits=25, prec=52)
 
     if not arg or arg == "print32-":
         # 145 values
         for e2 in range(16, 128+23):
             e10 = (e2 * 78913) >> 18
-            find_hard_printf_negexp(e2, e10+1, mantbits=25, prec=52)
+            if e2 == 150:
+                # denormals have exponent p-149 (so midpoint is XXp-150)
+                find_hard_parse_negexp(e2, e10+1, mantbits=24, prec=52, denormal=True)
+            else:
+                find_hard_parse_negexp(e2, e10+1, mantbits=25, prec=52)
 
-def find_hard_printf(e2, e10, mantbits=54, prec=96):
+def find_hard_parse(e2, e10, mantbits=54, prec=96):
     """
-    e.g. find floating-point numbers with exponent 385 hard to print.
+    Find floating point numbers which are hard to parse from decimal
+    representation. The same numbers will be hard to format
+    to their "shortest representation" because doing so requires
+    knowing whether a representation parses back to the original number.
+
+    e.g. find floating-point numbers with exponent 385 hard to parse.
 
     For example: 8640368759831959p+385
 
     The midpoint (8640368759831959 + 1/2) * 1<<385
     is 68089572682806429.999999999999999e115
-    so it is hard at 16 digits.
+    so it is hard to determine whethere 68089572682806430e115
+    should parse to 8640368759831959p385 or 8640368759831960p385.
 
     We are looking for:
         mantissa × 2**385 × 10**-116 = digits + ε
     where digits < 1e16
           mantissa < 2**54
-          mantissa is odd
+          mantissa is odd (mantissa of the midpoint)
 
     that is:
         2**385 / 10**116 = digits / mantissa + ε'
@@ -88,8 +102,8 @@ def find_hard_printf(e2, e10, mantbits=54, prec=96):
                     decimal = str(m << e2)
                     if e10 > 20:
                         decimal = decimal[:20-e10] + "..."
-                    print('{:17} {:17} {:17}p+{} = {:>45}'.format(
-                        m, d, m, e2, decimal))
+                    print('{:17} {:17}e+{:03} {:17}p+{} = {:>45}'.format(
+                        m, d, e10, m, e2, decimal))
                 m += 2*mant
                 d += 2*digs
         else:
@@ -100,9 +114,9 @@ def find_hard_printf(e2, e10, mantbits=54, prec=96):
         #epsilon = (2**e2 * mant - 10**e10 * digs) / (10**e10 * mant)
         #print("epsilon =", epsilon)
 
-def find_hard_printf_negexp(e2, e10, mantbits=54, prec=96):
+def find_hard_parse_negexp(e2, e10, mantbits=54, prec=96, denormal=False):
     """
-    Like find_hard_printf but for negative exponents
+    Like find_hard_parse but for negative exponents
 
     We look for:
         mantissa / 2**e2 = digits / 10**e10 + ε
@@ -123,13 +137,13 @@ def find_hard_printf_negexp(e2, e10, mantbits=54, prec=96):
             m = mant
             d = digs
             while m.bit_length() <= mantbits:
-                if m.bit_length() == mantbits:
+                if denormal or m.bit_length() == mantbits:
                     decimal = str(m * 5**e2)
                     if e2 > 30:
                         trim = ((e2-30)*7) // 10
                         decimal = decimal[:-trim]
-                    print('{:17} {:17} {:17}p-{} = {:>45}...'.format(
-                        m, d, m, e2, decimal))
+                    print('{:17} {:17}e-{:03d} {:17}p-{} = {:>45}...'.format(
+                        m, d, e10, m, e2, decimal))
                 m += 2*mant
                 d += 2*digs
 
