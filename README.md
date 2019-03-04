@@ -73,6 +73,9 @@ It takes less than a second to enumerate the single-precision
 (float32) values that are hard to format when using 52-bit arithmetic
 (about 280 values).
 
+The Go implementation can enumerate an interval of 1 million rational numbers
+in a few milliseconds.
+
 ## References
 
 - [Wikipedia (Stern-Brocot Tree)](https://en.wikipedia.org/wiki/Stern%E2%80%93Brocot_tree)
