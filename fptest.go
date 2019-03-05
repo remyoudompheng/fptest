@@ -1,6 +1,7 @@
 package fptest
 
 import (
+	"math/big"
 	"math/bits"
 )
 
@@ -22,6 +23,10 @@ type Rat struct {
 	c, d uint64 // c > d
 }
 
+// NewRat returns a new Rat equal to num/den, except
+// if Bitlen(den) > maxBits, in which case a convergent
+// of the continued fraction expansion will be returned
+// instead.
 func NewRat(num, den uint64, maxBits uint) *Rat {
 	r := &Rat{
 		maxBits: maxBits,
@@ -30,10 +35,46 @@ func NewRat(num, den uint64, maxBits uint) *Rat {
 	}
 	for den > 0 {
 		quo, rem := num/den, num%den
+		newc := quo*r.c + r.d
+		switch {
+		case bits.Len64(newc) > int(maxBits),
+			r.c > 0 && bits.Len64(newc) == int(maxBits) && newc/r.c != quo:
+			// stop here
+			return r
+		}
 		r.cf = append(r.cf, quo)
 		r.a, r.b = quo*r.a+r.b, r.a
 		r.c, r.d = quo*r.c+r.d, r.c
 		num, den = den, rem
+	}
+	return r
+}
+
+func NewRatFromBig(num, den *big.Int, maxBits uint) *Rat {
+	r := &Rat{
+		maxBits: maxBits,
+		a:       1,
+		d:       1,
+	}
+	for den.BitLen() > 0 {
+		quoB, remB := new(big.Int), new(big.Int)
+		quoB.DivMod(num, den, remB)
+		if quoB.BitLen() >= 64 {
+			// stop here
+			return r
+		}
+		quo := quoB.Uint64()
+		newc := quo*r.c + r.d
+		switch {
+		case bits.Len64(newc) > int(maxBits),
+			r.c > 1 && newc/r.c != quo:
+			// stop here
+			return r
+		}
+		r.cf = append(r.cf, quo)
+		r.a, r.b = quo*r.a+r.b, r.a
+		r.c, r.d = quo*r.c+r.d, r.c
+		num, den = den, remB
 	}
 	return r
 }
@@ -85,8 +126,8 @@ func (r *Rat) peekChild(idx int) (num, den uint64) {
 	}
 }
 
-// Next mutates r to the next rational number
-// within the given bounds.
+// Next mutates r to the next rational number in the Farey sequence
+// F_(1<<maxBits-1).
 func (r *Rat) Next() {
 	// The next element in the tree is either:
 	// - the left-most leaf from the right child

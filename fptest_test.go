@@ -2,6 +2,7 @@ package fptest
 
 import (
 	"fmt"
+	"math/big"
 	"math/bits"
 	"testing"
 )
@@ -29,12 +30,33 @@ func TestNewRat(t *testing.T) {
 		t.Errorf("got %d/%d, expect 355/113", num, den)
 	}
 	t.Logf("%d/%d = %v", num, den, r.cf)
+
+	r = NewRat(355, 113, 4)
+	num, den = r.Fraction()
+	if num != 22 || den != 7 {
+		t.Errorf("got %d/%d, expect 22/7", num, den)
+	}
+	t.Logf("%d/%d = %v", num, den, r.cf)
+
 	r = NewRat(89, 55, 8)
 	num, den = r.Fraction()
 	if num != 89 || den != 55 {
 		t.Errorf("got %d/%d, expect 89/55", num, den)
 	}
 	t.Logf("%d/%d = %v", num, den, r.cf)
+}
+
+func TestRatFromBig(t *testing.T) {
+	// 3**50 / 10**24
+	n, _ := new(big.Int).SetString("717897987691852588770249", 10)
+	d, _ := new(big.Int).SetString("1000000000000000000000000", 10)
+	r := NewRatFromBig(n, d, 64)
+	t.Log(r.cf)
+	num, den := r.Fraction()
+	if num != 2159037562977366367 || den != 3007443397242258693 {
+		t.Errorf("got %d/%d, expect 3^50/10^24 ~= 2159037562977366367/3007443397242258693",
+			num, den)
+	}
 }
 
 func TestRatNext(t *testing.T) {
