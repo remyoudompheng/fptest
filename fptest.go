@@ -19,7 +19,7 @@ func AlmostDecimalPos(e2 int, digits int, mantbits, precision uint, direction in
 	// Find all rationals n / (2*mant+1) close to 2**(e2-1) / 10**k
 	//
 	// (k + digits) * log(10) == (mantbits + e2) * log(2)
-	e10 := int(float64(e2+int(mantbits))*log2overlog10) - digits
+	e10 := int(math.Ceil(float64(e2+int(mantbits))*log2overlog10)) - digits
 
 	num := big.NewInt(1)
 	num.Lsh(num, uint(e2-1))
@@ -52,6 +52,44 @@ func AlmostDecimalPos(e2 int, digits int, mantbits, precision uint, direction in
 }
 
 const log2overlog10 = 0.30102999566398114
+
+// AlmostDecimalNeg enumerates numbers mant/2**e2 such that
+// the midpoint (mant+1/2)/2**e2 is very close to n/10**k for some integer n.
+func AlmostDecimalNeg(e2 int, digits int, mantbits, precision uint,
+	direction int, denormals bool, f func(float64)) {
+	// Find all rationals n / (2*mant+1) close to 10**k/2**(e2+1)
+	//
+	// (digits - k) * log(10) == (mantbits - e2) * log(2)
+	e10 := int(float64(e2-int(mantbits))*log2overlog10) + digits
+
+	num := big.NewInt(10)
+	num.Exp(num, big.NewInt(int64(e10)), nil)
+	den := big.NewInt(1)
+	den.Lsh(den, uint(e2+1))
+	r1 := NewRatFromBig(num, den, mantbits+1)
+	var r2 *Rat
+	if direction == -1 {
+		// n/(2*mant+1) is slight too large.
+		// num2 = num * (1 << precision + 1)
+		// den2 = den << precision
+		num2 := new(big.Int).Lsh(num, precision)
+		den2 := new(big.Int).Lsh(den, precision)
+		num2 = num2.Add(num2, num)
+		r2 = NewRatFromBig(num2, den2, mantbits+1)
+	} else {
+		num2 := new(big.Int).Lsh(num, precision)
+		den2 := new(big.Int).Lsh(den, precision)
+		num2 = num2.Sub(num2, num)
+		r2 = r1
+		r1 = NewRatFromBig(num2, den2, mantbits+1)
+	}
+	for r := r1; r.Less(r2); r.Next() {
+		_, b := r.Fraction()
+		if b%2 == 1 && (denormals || bits.Len64(b) == int(mantbits+1)) {
+			f(math.Ldexp(float64(b/2), -e2))
+		}
+	}
+}
 
 // A Rat is a positive rational number, internally
 // represented as a continued fraction.
