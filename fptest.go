@@ -91,6 +91,82 @@ func AlmostDecimalNeg(e2 int, digits int, mantbits, precision uint,
 	}
 }
 
+// AlmostHalfDecimalPos enumerates floating-point numbers mant*2**e2
+// are very close to half a decimal number (n+1/2)*10**k.
+func AlmostHalfDecimalPos(e2 int, digits int, mantbits, precision uint, direction int, f func(float64)) {
+	// Find all rationals (2n+1) / mant close to 2**(e2+1) / 10**k
+	e10 := int(math.Ceil(float64(e2+int(mantbits))*log2overlog10)) - digits
+
+	num := big.NewInt(1)
+	num.Lsh(num, uint(e2+1))
+	den := big.NewInt(10)
+	den.Exp(den, big.NewInt(int64(e10)), nil)
+	r1 := NewRatFromBig(num, den, mantbits)
+	var r2 *Rat
+	if direction == -1 {
+		// (2n+1)/mant is slightly too large.
+		num2 := new(big.Int).Lsh(num, precision)
+		den2 := new(big.Int).Lsh(den, precision)
+		num2 = num2.Add(num2, num)
+		r2 = NewRatFromBig(num2, den2, mantbits)
+	} else {
+		num2 := new(big.Int).Lsh(num, precision)
+		den2 := new(big.Int).Lsh(den, precision)
+		num2 = num2.Sub(num2, num)
+		r2 = r1
+		r1 = NewRatFromBig(num2, den2, mantbits)
+	}
+	for r := r1; r.Less(r2); r.Next() {
+		a, b := r.Fraction()
+		if a%2 == 1 && bits.Len64(b) == int(mantbits) {
+			f(math.Ldexp(float64(b), e2))
+		}
+	}
+}
+
+// AlmostHalfDecimalNeg enumerates floating-point numbers mant/2**e2
+// are very close to half a decimal number (n+1/2)/10**k.
+func AlmostHalfDecimalNeg(e2 int, digits int, mantbits, precision uint, direction int, denormal bool, f func(float64)) {
+	// Find all rationals (2n+1) / mant close to 10**k / 2**(e2-1)
+	e10 := int(float64(e2-int(mantbits))*log2overlog10) + digits
+
+	num := big.NewInt(10)
+	num.Exp(num, big.NewInt(int64(e10)), nil)
+	den := big.NewInt(1)
+	den.Lsh(den, uint(e2-1))
+	r1 := NewRatFromBig(num, den, mantbits)
+	var r2 *Rat
+	if direction == -1 {
+		// (2n+1)/mant is slightly too large.
+		r2 = slightlyOff(num, den, precision, +1, mantbits)
+	} else {
+		r2 = r1
+		if len(r2.cf)%2 == 1 {
+			r2.Next() // r2 is included
+		}
+		r1 = slightlyOff(num, den, precision, -1, mantbits)
+	}
+	for r := r1; r.Less(r2); r.Next() {
+		a, b := r.Fraction()
+		if a%2 == 1 && (denormal || bits.Len64(b) == int(mantbits)) {
+			f(math.Ldexp(float64(b), -e2))
+		}
+	}
+}
+
+func slightlyOff(num, den *big.Int, precision uint, direction int, maxBits uint) *Rat {
+	// num2 = num * (1 << precision + 1)
+	// den2 = den << precision
+	num2 := new(big.Int).Lsh(num, precision)
+	den2 := new(big.Int).Lsh(den, precision)
+	if direction == +1 {
+		num2 = num2.Add(num2, num)
+	} else {
+		num2 = num2.Sub(num2, num)
+	}
+	return NewRatFromBig(num2, den2, maxBits)
+}
+
 // A Rat is a positive rational number, internally
 // represented as a continued fraction.
 // The numerator and denominator must fit in 64 bits.
