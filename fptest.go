@@ -81,6 +81,7 @@ func NewRat(num, den uint64, maxBits uint) *Rat {
 		a:       1,
 		d:       1,
 	}
+euclid:
 	for den > 0 {
 		quo, rem := num/den, num%den
 		newc := quo*r.c + r.d
@@ -88,7 +89,7 @@ func NewRat(num, den uint64, maxBits uint) *Rat {
 		case bits.Len64(newc) > int(maxBits),
 			r.c > 0 && bits.Len64(newc) == int(maxBits) && newc/r.c != quo:
 			// stop here
-			break
+			break euclid
 		}
 		r.cf = append(r.cf, quo)
 		r.a, r.b = quo*r.a+r.b, r.a
@@ -216,6 +217,7 @@ func (r *Rat) Next() {
 	} else {
 		// Right child is out of bounds. Go up-left and right.
 		if len(r.cf) <= 1 {
+			println(r.a, r.c)
 			panic("impossible")
 		} else if len(r.cf)%2 == 0 {
 			//                     (..k+1)
