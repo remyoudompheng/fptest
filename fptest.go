@@ -31,16 +31,10 @@ func AlmostDecimalPos(e2 int, digits int, mantbits, precision uint, direction in
 		// n/(2*mant+1) is slight too large.
 		// num2 = num * (1 << precision + 1)
 		// den2 = den << precision
-		num2 := new(big.Int).Lsh(num, precision)
-		den2 := new(big.Int).Lsh(den, precision)
-		num2 = num2.Add(num2, num)
-		r2 = NewRatFromBig(num2, den2, mantbits+1)
+		r2 = slightlyOff(num, den, precision, +1, mantbits+1)
 	} else {
-		num2 := new(big.Int).Lsh(num, precision)
-		den2 := new(big.Int).Lsh(den, precision)
-		num2 = num2.Sub(num2, num)
 		r2 = r1
-		r1 = NewRatFromBig(num2, den2, mantbits+1)
+		r1 = slightlyOff(num, den, precision, -1, mantbits+1)
 	}
 	for r := r1; r.Less(r2); r.Next() {
 		_, b := r.Fraction()
@@ -72,16 +66,10 @@ func AlmostDecimalNeg(e2 int, digits int, mantbits, precision uint,
 		// n/(2*mant+1) is slight too large.
 		// num2 = num * (1 << precision + 1)
 		// den2 = den << precision
-		num2 := new(big.Int).Lsh(num, precision)
-		den2 := new(big.Int).Lsh(den, precision)
-		num2 = num2.Add(num2, num)
-		r2 = NewRatFromBig(num2, den2, mantbits+1)
+		r2 = slightlyOff(num, den, precision, +1, mantbits+1)
 	} else {
-		num2 := new(big.Int).Lsh(num, precision)
-		den2 := new(big.Int).Lsh(den, precision)
-		num2 = num2.Sub(num2, num)
 		r2 = r1
-		r1 = NewRatFromBig(num2, den2, mantbits+1)
+		r1 = slightlyOff(num, den, precision, -1, mantbits+1)
 	}
 	for r := r1; r.Less(r2); r.Next() {
 		_, b := r.Fraction()
@@ -105,16 +93,10 @@ func AlmostHalfDecimalPos(e2 int, digits int, mantbits, precision uint, directio
 	var r2 *Rat
 	if direction == -1 {
 		// (2n+1)/mant is slightly too large.
-		num2 := new(big.Int).Lsh(num, precision)
-		den2 := new(big.Int).Lsh(den, precision)
-		num2 = num2.Add(num2, num)
-		r2 = NewRatFromBig(num2, den2, mantbits)
+		r2 = slightlyOff(num, den, precision, +1, mantbits)
 	} else {
-		num2 := new(big.Int).Lsh(num, precision)
-		den2 := new(big.Int).Lsh(den, precision)
-		num2 = num2.Sub(num2, num)
 		r2 = r1
-		r1 = NewRatFromBig(num2, den2, mantbits)
+		r1 = slightlyOff(num, den, precision, -1, mantbits)
 	}
 	for r := r1; r.Less(r2); r.Next() {
 		a, b := r.Fraction()
