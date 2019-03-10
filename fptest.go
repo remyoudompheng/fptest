@@ -6,7 +6,7 @@ import (
 	"math/bits"
 )
 
-// AlmostDecimalPos enumerates floating-point numbers
+// AlmostDecimalMidpoint enumerates floating-point numbers
 // mant × 2**e2 such that the midpoint (mant+1/2)×2**e2
 // is very close to n × 10**k where n is an integer.
 //
@@ -15,7 +15,18 @@ import (
 //
 // Very close is interpreted as a relative difference less than
 // 1 / 2^precision.
-func AlmostDecimalPos(e2 int, digits int, mantbits, precision uint, direction int, f func(float64)) {
+func AlmostDecimalMidpoint(e2 int, digits int, mantbits, precision uint, direction int, denormal bool, f func(float64)) {
+	if e2 >= 0 {
+		almostDecimalPos(e2, digits, mantbits, precision, direction, f)
+	} else {
+		almostDecimalNeg(e2, digits, mantbits, precision, direction, denormal, f)
+	}
+}
+
+const log2overlog10 = 0.30102999566398114
+
+// almostDecimalPos is AlmostDecimalMidpoint for e2 >= 0.
+func almostDecimalPos(e2 int, digits int, mantbits, precision uint, direction int, f func(float64)) {
 	// Find all rationals n / (2*mant+1) close to 2**(e2-1) / 10**k
 	//
 	// (k + digits) * log(10) == (mantbits + e2) * log(2)
@@ -45,11 +56,9 @@ func AlmostDecimalPos(e2 int, digits int, mantbits, precision uint, direction in
 	}
 }
 
-const log2overlog10 = 0.30102999566398114
-
-// AlmostDecimalNeg enumerates numbers mant/2**e2 such that
+// almostDecimalNeg enumerates numbers mant/2**e2 such that
 // the midpoint (mant+1/2)/2**e2 is very close to n/10**k for some integer n.
-func AlmostDecimalNeg(e2 int, digits int, mantbits, precision uint,
+func almostDecimalNeg(e2 int, digits int, mantbits, precision uint,
 	direction int, denormals bool, f func(float64)) {
 	// Find all rationals n / (2*mant+1) close to 10**k/2**(e2+1)
 	//
@@ -79,9 +88,18 @@ func AlmostDecimalNeg(e2 int, digits int, mantbits, precision uint,
 	}
 }
 
-// AlmostHalfDecimalPos enumerates floating-point numbers mant*2**e2
+// AlmostHalfDecimal enumerates floating-point numbers mant*2**e2
 // are very close to half a decimal number (n+1/2)*10**k.
-func AlmostHalfDecimalPos(e2 int, digits int, mantbits, precision uint, direction int, f func(float64)) {
+func AlmostHalfDecimal(e2 int, digits int, mantbits, precision uint,
+	direction int, denormal bool, f func(float64)) {
+	if e2 >= 0 {
+		almostHalfDecimalPos(e2, digits, mantbits, precision, direction, f)
+	} else {
+		almostHalfDecimalNeg(e2, digits, mantbits, precision, direction, denormal, f)
+	}
+}
+
+func almostHalfDecimalPos(e2 int, digits int, mantbits, precision uint, direction int, f func(float64)) {
 	// Find all rationals (2n+1) / mant close to 2**(e2+1) / 10**k
 	e10 := int(math.Ceil(float64(e2+int(mantbits))*log2overlog10)) - digits
 
@@ -106,9 +124,8 @@ func AlmostHalfDecimalPos(e2 int, digits int, mantbits, precision uint, directio
 	}
 }
 
-// AlmostHalfDecimalNeg enumerates floating-point numbers mant/2**e2
-// are very close to half a decimal number (n+1/2)/10**k.
-func AlmostHalfDecimalNeg(e2 int, digits int, mantbits, precision uint, direction int, denormal bool, f func(float64)) {
+// almostHalfDecimalNeg implements AlmostHalfDecimal for negative exponents.
+func almostHalfDecimalNeg(e2 int, digits int, mantbits, precision uint, direction int, denormal bool, f func(float64)) {
 	// Find all rationals (2n+1) / mant close to 10**k / 2**(e2-1)
 	e10 := int(float64(e2-int(mantbits))*log2overlog10) + digits
 

@@ -30,17 +30,17 @@ func hardMidpoints() {
 	for digits := 16; digits > 0; digits-- {
 		fmt.Println("===", digits, "digits ===")
 		for exp := 60; exp < 1024-52; exp++ {
-			fptest.AlmostDecimalPos(exp, digits, 53, uint(basePrec+2*digits), +1, show)
-			fptest.AlmostDecimalPos(exp, digits, 53, uint(basePrec+2*digits), -1, show)
+			fptest.AlmostDecimalMidpoint(exp, digits, 53, uint(basePrec+2*digits), +1, false, show)
+			fptest.AlmostDecimalMidpoint(exp, digits, 53, uint(basePrec+2*digits), -1, false, show)
 		}
 		for exp := 60; exp < 1024+52; exp++ {
 			if exp == 1023+52 {
 				// denormals
-				fptest.AlmostDecimalNeg(exp-1, digits, 52, uint(basePrec+2*digits), +1, true, show)
-				fptest.AlmostDecimalNeg(exp-1, digits, 52, uint(basePrec+2*digits), -1, true, show)
+				fptest.AlmostDecimalMidpoint(exp-1, digits, 52, uint(basePrec+2*digits), +1, true, show)
+				fptest.AlmostDecimalMidpoint(exp-1, digits, 52, uint(basePrec+2*digits), -1, true, show)
 			} else {
-				fptest.AlmostDecimalNeg(exp, digits, 53, uint(basePrec+2*digits), +1, false, show)
-				fptest.AlmostDecimalNeg(exp, digits, 53, uint(basePrec+2*digits), -1, false, show)
+				fptest.AlmostDecimalMidpoint(exp, digits, 53, uint(basePrec+2*digits), +1, false, show)
+				fptest.AlmostDecimalMidpoint(exp, digits, 53, uint(basePrec+2*digits), -1, false, show)
 			}
 		}
 	}
@@ -61,17 +61,17 @@ func hardFloats() {
 
 		fmt.Println("===", digits, "digits ===")
 		for exp := 45 + digits; exp < 1024-52; exp++ {
-			fptest.AlmostHalfDecimalPos(exp, digits, 53, uint(basePrec+2*digits), +1, show)
-			fptest.AlmostHalfDecimalPos(exp, digits, 53, uint(basePrec+2*digits), -1, show)
+			fptest.AlmostHalfDecimal(exp, digits, 53, uint(basePrec+2*digits), +1, false, show)
+			fptest.AlmostHalfDecimal(exp, digits, 53, uint(basePrec+2*digits), -1, false, show)
 		}
 		for exp := 60; exp < 1024+52; exp++ {
 			if exp == 1023+52 {
 				// denormals
-				fptest.AlmostHalfDecimalNeg(exp-1, digits, 52, uint(basePrec+2*digits), +1, true, show)
-				fptest.AlmostHalfDecimalNeg(exp-1, digits, 52, uint(basePrec+2*digits), -1, true, show)
+				fptest.AlmostHalfDecimal(exp-1, digits, 52, uint(basePrec+2*digits), +1, true, show)
+				fptest.AlmostHalfDecimal(exp-1, digits, 52, uint(basePrec+2*digits), -1, true, show)
 			} else {
-				fptest.AlmostHalfDecimalNeg(exp, digits, 53, uint(basePrec+2*digits), +1, false, show)
-				fptest.AlmostHalfDecimalNeg(exp, digits, 53, uint(basePrec+2*digits), -1, false, show)
+				fptest.AlmostHalfDecimal(exp, digits, 53, uint(basePrec+2*digits), +1, false, show)
+				fptest.AlmostHalfDecimal(exp, digits, 53, uint(basePrec+2*digits), -1, false, show)
 			}
 		}
 	}

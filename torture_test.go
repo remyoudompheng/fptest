@@ -33,17 +33,17 @@ func TestRyu(t *testing.T) {
 	const basePrec = 64
 	for digits := 16; digits > 0; digits-- {
 		for exp := 60; exp < 1024-52; exp++ {
-			AlmostDecimalPos(exp, digits, 53, uint(basePrec+2*digits), +1, do)
-			AlmostDecimalPos(exp, digits, 53, uint(basePrec+2*digits), -1, do)
+			AlmostDecimalMidpoint(exp, digits, 53, uint(basePrec+2*digits), +1, false, do)
+			AlmostDecimalMidpoint(exp, digits, 53, uint(basePrec+2*digits), -1, false, do)
 		}
 		for exp := 60; exp < 1024+52; exp++ {
 			if exp == 1023+52 {
 				// denormals
-				AlmostDecimalNeg(exp-1, digits, 52, uint(basePrec+2*digits), +1, true, do)
-				AlmostDecimalNeg(exp-1, digits, 52, uint(basePrec+2*digits), -1, true, do)
+				AlmostDecimalMidpoint(exp-1, digits, 52, uint(basePrec+2*digits), +1, true, do)
+				AlmostDecimalMidpoint(exp-1, digits, 52, uint(basePrec+2*digits), -1, true, do)
 			} else {
-				AlmostDecimalNeg(exp, digits, 53, uint(basePrec+2*digits), +1, false, do)
-				AlmostDecimalNeg(exp, digits, 53, uint(basePrec+2*digits), -1, false, do)
+				AlmostDecimalMidpoint(exp, digits, 53, uint(basePrec+2*digits), +1, false, do)
+				AlmostDecimalMidpoint(exp, digits, 53, uint(basePrec+2*digits), -1, false, do)
 			}
 		}
 	}
