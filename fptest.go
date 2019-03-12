@@ -19,7 +19,7 @@ func AlmostDecimalMidpoint(e2 int, digits int, mantbits, precision uint, directi
 	if e2 >= 0 {
 		almostDecimalPos(e2, digits, mantbits, precision, direction, f)
 	} else {
-		almostDecimalNeg(e2, digits, mantbits, precision, direction, denormal, f)
+		almostDecimalNeg(-e2, digits, mantbits, precision, direction, denormal, f)
 	}
 }
 
@@ -91,15 +91,16 @@ func almostDecimalNeg(e2 int, digits int, mantbits, precision uint,
 // AlmostHalfDecimal enumerates floating-point numbers mant*2**e2
 // are very close to half a decimal number (n+1/2)*10**k.
 func AlmostHalfDecimal(e2 int, digits int, mantbits, precision uint,
-	direction int, denormal bool, f func(float64)) {
+	direction int, denormal bool, f func(x float64, n uint64, k int)) {
 	if e2 >= 0 {
 		almostHalfDecimalPos(e2, digits, mantbits, precision, direction, f)
 	} else {
-		almostHalfDecimalNeg(e2, digits, mantbits, precision, direction, denormal, f)
+		almostHalfDecimalNeg(-e2, digits, mantbits, precision, direction, denormal, f)
 	}
 }
 
-func almostHalfDecimalPos(e2 int, digits int, mantbits, precision uint, direction int, f func(float64)) {
+func almostHalfDecimalPos(e2 int, digits int, mantbits, precision uint, direction int,
+	f func(float64, uint64, int)) {
 	// Find all rationals (2n+1) / mant close to 2**(e2+1) / 10**k
 	e10 := int(math.Ceil(float64(e2+int(mantbits))*log2overlog10)) - digits
 
@@ -111,6 +112,7 @@ func almostHalfDecimalPos(e2 int, digits int, mantbits, precision uint, directio
 	var r2 *Rat
 	if direction == -1 {
 		// (2n+1)/mant is slightly too large.
+		r1.Next() // FIXME
 		r2 = slightlyOff(num, den, precision, +1, mantbits)
 	} else {
 		r2 = r1
@@ -119,13 +121,14 @@ func almostHalfDecimalPos(e2 int, digits int, mantbits, precision uint, directio
 	for r := r1; r.Less(r2); r.Next() {
 		a, b := r.Fraction()
 		if a%2 == 1 && bits.Len64(b) == int(mantbits) {
-			f(math.Ldexp(float64(b), e2))
+			f(math.Ldexp(float64(b), e2), a/2, e10)
 		}
 	}
 }
 
 // almostHalfDecimalNeg implements AlmostHalfDecimal for negative exponents.
-func almostHalfDecimalNeg(e2 int, digits int, mantbits, precision uint, direction int, denormal bool, f func(float64)) {
+func almostHalfDecimalNeg(e2 int, digits int, mantbits, precision uint, direction int, denormal bool,
+	f func(float64, uint64, int)) {
 	// Find all rationals (2n+1) / mant close to 10**k / 2**(e2-1)
 	e10 := int(float64(e2-int(mantbits))*log2overlog10) + digits
 
@@ -137,18 +140,16 @@ func almostHalfDecimalNeg(e2 int, digits int, mantbits, precision uint, directio
 	var r2 *Rat
 	if direction == -1 {
 		// (2n+1)/mant is slightly too large.
+		r1.Next() // FIXME
 		r2 = slightlyOff(num, den, precision, +1, mantbits)
 	} else {
 		r2 = r1
-		if len(r2.cf)%2 == 1 {
-			r2.Next() // r2 is included
-		}
 		r1 = slightlyOff(num, den, precision, -1, mantbits)
 	}
 	for r := r1; r.Less(r2); r.Next() {
 		a, b := r.Fraction()
 		if a%2 == 1 && (denormal || bits.Len64(b) == int(mantbits)) {
-			f(math.Ldexp(float64(b), -e2))
+			f(math.Ldexp(float64(b), -e2), a/2, -e10)
 		}
 	}
 }

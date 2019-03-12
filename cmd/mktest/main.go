@@ -51,7 +51,7 @@ func hardFloats() {
 	count := 0
 
 	for digits := 19; digits > 0; digits-- {
-		show := func(x float64) {
+		show := func(x float64, n uint64, k int) {
 			mant, exp := math.Frexp(x)
 			count++
 			D := fmt.Sprint(digits - 1)
