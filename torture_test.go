@@ -30,28 +30,31 @@ func TestTortureShortest64(t *testing.T) {
 		count += 2
 	}
 
-	basePrec := 64
-	if testing.Short() {
-		basePrec += 4
-	}
-	for digits := 16; digits > 0; digits-- {
+	for digits := 18; digits > 0; digits-- {
+		difficulty := 48 + 3*digits
+		if testing.Short() {
+			difficulty += 4
+		}
+		if difficulty < 64 {
+			difficulty = 64
+		}
+		count = 0
 		for exp := 60; exp < 1024-52; exp++ {
-			AlmostDecimalMidpoint(exp, digits, 53, uint(basePrec+2*digits), +1, false, do)
-			AlmostDecimalMidpoint(exp, digits, 53, uint(basePrec+2*digits), -1, false, do)
+			AlmostDecimalMidpoint(exp, digits, 53, uint(difficulty), +1, false, do)
+			AlmostDecimalMidpoint(exp, digits, 53, uint(difficulty), -1, false, do)
 		}
 		for exp := 60; exp < 1024+52; exp++ {
 			if exp == 1023+52 {
 				// denormals
-				AlmostDecimalMidpoint(-(exp - 1), digits, 52, uint(basePrec+2*digits), +1, true, do)
-				AlmostDecimalMidpoint(-(exp - 1), digits, 52, uint(basePrec+2*digits), -1, true, do)
+				AlmostDecimalMidpoint(-(exp - 1), digits, 52, uint(difficulty), +1, true, do)
+				AlmostDecimalMidpoint(-(exp - 1), digits, 52, uint(difficulty), -1, true, do)
 			} else {
-				AlmostDecimalMidpoint(-exp, digits, 53, uint(basePrec+2*digits), +1, false, do)
-				AlmostDecimalMidpoint(-exp, digits, 53, uint(basePrec+2*digits), -1, false, do)
+				AlmostDecimalMidpoint(-exp, digits, 53, uint(difficulty), +1, false, do)
+				AlmostDecimalMidpoint(-exp, digits, 53, uint(difficulty), -1, false, do)
 			}
 		}
+		t.Logf("%d numbers tested (%d decimal digits)", count, digits)
 	}
-
-	t.Logf("%d numbers tested", count)
 }
 
 func TestTortureShortest32(t *testing.T) {
@@ -78,7 +81,8 @@ func TestTortureShortest32(t *testing.T) {
 	}
 
 	basePrec := 24
-	for digits := 7; digits > 0; digits-- {
+	for digits := 10; digits > 0; digits-- {
+		count = 0
 		for exp := 10; exp < 127-23; exp++ {
 			AlmostDecimalMidpoint(exp, digits, 24, uint(basePrec+2*digits), +1, false, do)
 			AlmostDecimalMidpoint(exp, digits, 24, uint(basePrec+2*digits), -1, false, do)
@@ -93,23 +97,18 @@ func TestTortureShortest32(t *testing.T) {
 				AlmostDecimalMidpoint(-exp, digits, 24, uint(basePrec+2*digits), -1, false, do)
 			}
 		}
+		t.Logf("%d digits: %d numbers tested", digits, count)
 	}
-
-	t.Logf("%d numbers tested", count)
 }
 
 func TestTortureFixed64(t *testing.T) {
-	basePrec := 64
-	if testing.Short() {
-		basePrec += 4
-	}
-
-	count := 0
-	tooshort := 0
-	errors := 0
 	buf1 := make([]byte, 64)
 	buf2 := make([]byte, 64)
-	for digits := 16; digits > 0; digits-- {
+	for digits := 18; digits > 0; digits-- {
+		count := 0
+		tooshort := 0
+		errors := 0
+
 		roundUp := false
 		do := func(x float64, n uint64, k int) {
 			// x ~= (n + 1/2) × 10^k
@@ -118,6 +117,13 @@ func TestTortureFixed64(t *testing.T) {
 			// Round up.
 			if roundUp {
 				n += 1
+			}
+			// If n is a power of ten, the number of digits changes
+			// and the test is invalid.
+			switch n {
+			case 1, 10, 100, 1000, 10000:
+				tooshort++
+				return
 			}
 			s2, ok := appendE(buf2[:0], n, digits, k)
 			if !ok {
@@ -128,53 +134,55 @@ func TestTortureFixed64(t *testing.T) {
 			if !bytes.Equal(s1, s2) {
 				t.Errorf("x=%.32e digits=%d => %q %q ERR", x, digits, s1, s2)
 				errors++
-			} else {
-				//t.Logf("x=%.32e digits=%d => %q %q OK\n", x, digits, s1, s2)
+			} else if digits <= 2 {
+				t.Logf("x=%.32e digits=%d => %q %q OK", x, digits, s1, s2)
 			}
+		}
+
+		difficulty := 48 + 3*digits
+		if testing.Short() {
+			difficulty += 4
+		}
+		if difficulty < 64 {
+			difficulty = 64
 		}
 
 		for exp := 40; exp < 1024-52; exp++ {
-			prec := basePrec
-			if exp < 64 {
-				prec -= 4
-			}
 			roundUp = true
-			AlmostHalfDecimal(exp, digits, 53, uint(prec+2*digits), +1, false, do)
+			AlmostHalfDecimal(exp, digits, 53, uint(difficulty), +1, false, do)
 			roundUp = false
-			AlmostHalfDecimal(exp, digits, 53, uint(prec+2*digits), -1, false, do)
+			AlmostHalfDecimal(exp, digits, 53, uint(difficulty), -1, false, do)
 		}
 		for exp := 50; exp < 1024+52; exp++ {
-			prec := basePrec
-			if exp < 64 {
-				prec -= 4
-			}
 			if exp == 1023+52 {
 				// denormals
 				roundUp = true
-				AlmostHalfDecimal(-(exp - 1), digits, 52, uint(prec+2*digits), +1, true, do)
+				AlmostHalfDecimal(-(exp - 1), digits, 52, uint(difficulty), +1, true, do)
 				roundUp = false
-				AlmostHalfDecimal(-(exp - 1), digits, 52, uint(prec+2*digits), -1, true, do)
+				AlmostHalfDecimal(-(exp - 1), digits, 52, uint(difficulty), -1, true, do)
 			} else {
 				roundUp = true
-				AlmostHalfDecimal(-exp, digits, 53, uint(prec+2*digits), +1, false, do)
+				AlmostHalfDecimal(-exp, digits, 53, uint(difficulty), +1, false, do)
 				roundUp = false
-				AlmostHalfDecimal(-exp, digits, 53, uint(prec+2*digits), -1, false, do)
+				AlmostHalfDecimal(-exp, digits, 53, uint(difficulty), -1, false, do)
 			}
 		}
-	}
 
-	t.Logf("%d numbers tested, %d errors, %d skipped (too few digits)", count, errors, tooshort)
+		t.Logf("%d digits: %d numbers tested, %d errors, %d skipped (too few digits)",
+			digits, count, errors, tooshort)
+	}
 }
 
 func TestTortureFixed32(t *testing.T) {
 	prec := 24
 
-	count := 0
-	tooshort := 0
-	errors := 0
 	buf1 := make([]byte, 32)
 	buf2 := make([]byte, 32)
-	for digits := 7; digits > 0; digits-- {
+	for digits := 10; digits > 0; digits-- {
+		count := 0
+		tooshort := 0
+		errors := 0
+
 		roundUp := false
 		do := func(x float64, n uint64, k int) {
 			// x ~= (n + 1/2) × 10^k
@@ -225,9 +233,10 @@ func TestTortureFixed32(t *testing.T) {
 				AlmostHalfDecimal(-exp, digits, 24, uint(prec+2*digits), -1, false, do)
 			}
 		}
-	}
 
-	t.Logf("%d numbers tested, %d errors, %d skipped (too few digits)", count, errors, tooshort)
+		t.Logf("%d digits: %d numbers tested, %d errors, %d skipped (too few digits)",
+			digits, count, errors, tooshort)
+	}
 }
 
 func appendE(s []byte, mant uint64, digits int, exp int) ([]byte, bool) {
