@@ -13,6 +13,8 @@ func TestTortureShortest64(t *testing.T) {
 	count := 0
 	buf1 := make([]byte, 64)
 	buf2 := make([]byte, 64)
+	roundUp := false
+	checkShortest := false
 	do := func(x float64) {
 		s1 := ryu.AppendFloat64(buf1[:0], x)
 		s2 := strconv.AppendFloat(buf2[:0], x, 'e', -1, 64)
@@ -21,16 +23,30 @@ func TestTortureShortest64(t *testing.T) {
 		}
 
 		y := math.Nextafter(x, 2*x)
-		s1 = ryu.AppendFloat64(buf1[:0], y)
-		s2 = strconv.AppendFloat(buf2[:0], y, 'e', -1, 64)
-		if !bytes.Equal(s1, s2) {
-			t.Errorf("x=%v => %q %q", y, s1, s2)
+		t1 := ryu.AppendFloat64(buf1[:0], y)
+		t2 := strconv.AppendFloat(buf2[:0], y, 'e', -1, 64)
+		if !bytes.Equal(t1, t2) {
+			t.Errorf("x=%v => %q %q", y, t1, t2)
+		}
+
+		if checkShortest {
+			u := strconv.AppendFloat(buf1[:0], x, 'e', -1, 64)
+			v := strconv.AppendFloat(buf2[:0], y, 'e', -1, 64)
+			if roundUp && len(u) < len(v) {
+				t.Errorf("expected %.30e longer than %.30e, got %s %s",
+					x, y, u, v)
+			}
+			if !roundUp && len(u) > len(v) {
+				t.Errorf("expected %.30e shorter than %.30e, got %s %s",
+					x, y, u, v)
+			}
 		}
 
 		count += 2
 	}
 
 	for digits := 18; digits > 0; digits-- {
+		checkShortest = (digits <= 15)
 		difficulty := 48 + 3*digits
 		if testing.Short() {
 			difficulty += 4
@@ -40,16 +56,22 @@ func TestTortureShortest64(t *testing.T) {
 		}
 		count = 0
 		for exp := 60; exp < 1024-52; exp++ {
+			roundUp = false
 			AlmostDecimalMidpoint(exp, digits, 53, uint(difficulty), +1, false, do)
+			roundUp = true
 			AlmostDecimalMidpoint(exp, digits, 53, uint(difficulty), -1, false, do)
 		}
 		for exp := 60; exp < 1024+52; exp++ {
 			if exp == 1023+52 {
 				// denormals
+				roundUp = false
 				AlmostDecimalMidpoint(-(exp - 1), digits, 52, uint(difficulty), +1, true, do)
+				roundUp = true
 				AlmostDecimalMidpoint(-(exp - 1), digits, 52, uint(difficulty), -1, true, do)
 			} else {
+				roundUp = false
 				AlmostDecimalMidpoint(-exp, digits, 53, uint(difficulty), +1, false, do)
+				roundUp = true
 				AlmostDecimalMidpoint(-exp, digits, 53, uint(difficulty), -1, false, do)
 			}
 		}
