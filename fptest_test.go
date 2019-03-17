@@ -90,6 +90,37 @@ func TestRatNext(t *testing.T) {
 	}
 }
 
+func BenchmarkNewRatFromBig(b *testing.B) {
+	n, errn := new(big.Int).SetString("717897987691852588770249", 10)
+	d, errd := new(big.Int).SetString("1000000000000000000000000", 10)
+	if !errn || !errd {
+		b.Fatal(errn, errd)
+	}
+	b.ResetTimer()
+
+	var r *Rat
+	for i := 0; i < b.N; i++ {
+		r = NewRatFromBig(n, d, 64)
+	}
+	if b.N == 1 {
+		b.Log(r.Fraction())
+	}
+}
+
+func BenchmarkNewRat128(b *testing.B) {
+	n := [2]uint64{717897987691852588770249 >> 64, 717897987691852588770249 & (1<<64 - 1)}
+	d := [2]uint64{1000000000000000000000000 >> 64, 1000000000000000000000000 & (1<<64 - 1)}
+	b.ResetTimer()
+
+	var r *Rat
+	for i := 0; i < b.N; i++ {
+		r = NewRat128(n, d, 64)
+	}
+	if b.N == 1 {
+		b.Log(r.Fraction())
+	}
+}
+
 func BenchmarkRat_Next(b *testing.B) {
 	// Enumerate rationals between (10**24 ± 1) / 2**80
 	// with 60-bit denominators.

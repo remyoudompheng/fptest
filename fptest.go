@@ -205,18 +205,10 @@ euclid:
 			// stop here
 			break euclid
 		}
-		r.cf = append(r.cf, quo)
-		r.a, r.b = quo*r.a+r.b, r.a
-		r.c, r.d = quo*r.c+r.d, r.c
+		r.appendContinued(quo)
 		num, den = den, rem
 	}
-	if k := r.cf[len(r.cf)-1]; k == 1 {
-		// normalize
-		r.cf = r.cf[:len(r.cf)-1]
-		r.cf[len(r.cf)-1]++
-		r.b = r.a - r.b
-		r.d = r.c - r.d
-	}
+	r.normalize()
 	return r
 }
 
@@ -242,19 +234,54 @@ euclid:
 			// stop here
 			break euclid
 		}
-		r.cf = append(r.cf, quo)
-		r.a, r.b = quo*r.a+r.b, r.a
-		r.c, r.d = quo*r.c+r.d, r.c
+		r.appendContinued(quo)
 		num, den = den, remB
 	}
+	r.normalize()
+	return r
+}
+
+func NewRat128(num, den [2]uint64, maxBits uint) *Rat {
+	r := &Rat{
+		maxBits: maxBits,
+		a:       1,
+		d:       1,
+	}
+euclid:
+	for den != [2]uint64{} {
+		quo, rem := Divmod128(num, den)
+		if quo[0] > 0 {
+			// stop here
+			break
+		}
+		q := quo[1]
+		newc := q*r.c + r.d
+		switch {
+		case bits.Len64(newc) > int(maxBits),
+			r.c > 1 && newc/r.c != q:
+			// stop here
+			break euclid
+		}
+		r.appendContinued(q)
+		num, den = den, rem
+	}
+	r.normalize()
+	return r
+}
+
+func (r *Rat) appendContinued(q uint64) {
+	r.cf = append(r.cf, q)
+	r.a, r.b = q*r.a+r.b, r.a
+	r.c, r.d = q*r.c+r.d, r.c
+}
+
+func (r *Rat) normalize() {
 	if k := r.cf[len(r.cf)-1]; k == 1 {
-		// normalize
 		r.cf = r.cf[:len(r.cf)-1]
 		r.cf[len(r.cf)-1]++
 		r.b = r.a - r.b
 		r.d = r.c - r.d
 	}
-	return r
 }
 
 func (r *Rat) Fraction() (num, den uint64) {
