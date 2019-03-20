@@ -5,6 +5,37 @@ import (
 	"testing"
 )
 
+func TestDiv128(t *testing.T) {
+	n := [2]uint64{
+		123456789123456789123456789123456789 >> 64,
+		123456789123456789123456789123456789 & (1<<64 - 1),
+	}
+	d := [2]uint64{
+		123456789123456789123456789 >> 64,
+		123456789123456789123456789 & (1<<64 - 1),
+	}
+	quo, rem := Divmod128(n, d)
+	t.Log("123456789123456789123456789123456789 /",
+		"123456789123456789123456789 =",
+		quo, rem)
+	if quo[1] != 1000000000 || rem[1] != 123456789 {
+		t.Error("error")
+	}
+
+	n = [2]uint64{0xbde94e8e43d0c8ec, 0}
+	d = [2]uint64{1 << 56, 0}
+	quo, rem = Divmod128(n, d)
+	t.Logf("0xbde94e8e43d0c8ec << 64 / 1 << (56+64) = %x rem %x",
+		quo, rem)
+	if quo != [2]uint64{0, 0xbd} {
+		t.Errorf("bad quotient, wanted 0xbd: %v", quo)
+	}
+	if rem != [2]uint64{0xe94e8e43d0c8ec, 0} {
+		t.Errorf("bad remainder, wanted (0xe94e8e43d0c8ec, 0): %x", rem)
+	}
+
+}
+
 func BenchmarkBigDiv128(b *testing.B) {
 	n, errn := new(big.Int).SetString("1000000000000000000000000", 10)
 	d, errd := new(big.Int).SetString("717897987691852588770249", 10)
@@ -110,23 +141,5 @@ func BenchmarkDiv128Large(b *testing.B) {
 	}
 	if b.N == 1 {
 		b.Logf("%x / %x = %d, rem %d", n, d, quo, rem)
-	}
-}
-
-func TestDiv128(t *testing.T) {
-	n := [2]uint64{
-		123456789123456789123456789123456789 >> 64,
-		123456789123456789123456789123456789 & (1<<64 - 1),
-	}
-	d := [2]uint64{
-		123456789123456789123456789 >> 64,
-		123456789123456789123456789 & (1<<64 - 1),
-	}
-	quo, rem := Divmod128(n, d)
-	t.Log("123456789123456789123456789123456789 /",
-		"123456789123456789123456789 =",
-		quo, rem)
-	if quo[1] != 1000000000 || rem[1] != 123456789 {
-		t.Error("error")
 	}
 }

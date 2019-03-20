@@ -59,6 +59,16 @@ func TestRatFromBig(t *testing.T) {
 	}
 }
 
+func TestRat128(t *testing.T) {
+	r := NewRat(0xbde94e8e43d0c8ec, 1<<56, 64)
+	t.Logf("0xbde94e8e43d0c8ec / 1<<56 = %v", r.cf)
+
+	n := [2]uint64{0xbde94e8e43d0c8ec, 0}
+	d := [2]uint64{1 << 56, 0}
+	r = NewRat128(n, d, 64)
+	t.Logf("%x/%x = %v", n, d, r.cf)
+}
+
 func TestRatNext(t *testing.T) {
 	// Approximations of (10**24 ± 1) / 2**80 at 1.5e-29 precision
 	r0 := NewRat(65352703432539, 79006570561214, 48)

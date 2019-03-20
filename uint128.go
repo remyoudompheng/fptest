@@ -24,13 +24,19 @@ func Divmod128(a, b [2]uint64) (quo, rem [2]uint64) {
 		l := uint(bits.Len64(btop + 1)) // > 0
 		btop <<= (64 - l)
 		btop |= b[1] >> l
-		btop += 1 // round it up.
-		// b = (btop << l) - ε
+		// b = (btop << l) + ε
 		// make sure a[0] is less than btop
-		if a[0] >= btop {
+		if a[0] > btop {
+			// substract b << (64-l) == btop << 64 | b[1] << (64-l)
 			a[0] -= btop
-			quo[1] += 1
+			if a[1] < b[1]<<(64-l) {
+				a[0]--
+			}
+			a[1] -= b[1] << (64 - l)
+			quo[1] += 1 << (64 - l)
 		}
+		// divide by btop+1
+		btop += 1 // round up.
 		q, _ := bits.Div64(a[0], a[1], btop)
 		// a = q * btop + r
 		//   = (q >> l) * (b + ε) + (qlow * btop) + r
