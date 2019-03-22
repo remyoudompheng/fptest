@@ -10,7 +10,7 @@ import (
 func ExampleRat_Next() {
 	// Generates the Farey sequence F_7.
 	var nums, dens []uint64
-	r := NewRat(1, 7, 3)
+	r, _ := NewRat(1, 7, 3)
 	for r.a*r.c != 1 {
 		nums = append(nums, r.a)
 		dens = append(dens, r.c)
@@ -24,21 +24,21 @@ func ExampleRat_Next() {
 }
 
 func TestNewRat(t *testing.T) {
-	r := NewRat(355, 113, 8)
+	r, _ := NewRat(355, 113, 8)
 	num, den := r.Fraction()
 	if num != 355 || den != 113 {
 		t.Errorf("got %d/%d, expect 355/113", num, den)
 	}
 	t.Logf("%d/%d = %v", num, den, r.cf)
 
-	r = NewRat(355, 113, 4)
+	_, r = NewRat(355, 113, 4)
 	num, den = r.Fraction()
 	if num != 22 || den != 7 {
 		t.Errorf("got %d/%d, expect 22/7", num, den)
 	}
 	t.Logf("%d/%d = %v", num, den, r.cf)
 
-	r = NewRat(89, 55, 8)
+	r, _ = NewRat(89, 55, 8)
 	num, den = r.Fraction()
 	if num != 89 || den != 55 {
 		t.Errorf("got %d/%d, expect 89/55", num, den)
@@ -50,29 +50,37 @@ func TestRatFromBig(t *testing.T) {
 	// 3**50 / 10**24
 	n, _ := new(big.Int).SetString("717897987691852588770249", 10)
 	d, _ := new(big.Int).SetString("1000000000000000000000000", 10)
-	r := NewRatFromBig(n, d, 64)
-	t.Log(r.cf)
+	r, s := NewRatFromBig(n, d, 64)
 	num, den := r.Fraction()
 	if num != 2159037562977366367 || den != 3007443397242258693 {
-		t.Errorf("got %d/%d, expect 3^50/10^24 ~= 2159037562977366367/3007443397242258693",
+		t.Errorf("got %d/%d, expect 3^50/10^24 >~ 2159037562977366367/3007443397242258693",
 			num, den)
+	}
+	num, den = s.Fraction()
+	if num != 13168866270180124582 || den != 18343645609761301475 {
+		t.Errorf("got %d/%d, expect 3^50/10^24 <~ 13168866270180124582/18343645609761301475",
+			num, den)
+	}
+	r.Next()
+	if r.a != s.a || r.c != s.c {
+		t.Errorf("NewRat did not return consecutive fractions")
 	}
 }
 
 func TestRat128(t *testing.T) {
-	r := NewRat(0xbde94e8e43d0c8ec, 1<<56, 64)
+	r, _ := NewRat(0xbde94e8e43d0c8ec, 1<<56, 64)
 	t.Logf("0xbde94e8e43d0c8ec / 1<<56 = %v", r.cf)
 
 	n := [2]uint64{0xbde94e8e43d0c8ec, 0}
 	d := [2]uint64{1 << 56, 0}
-	r = NewRat128(n, d, 64)
+	r, _ = NewRat128(n, d, 64)
 	t.Logf("%x/%x = %v", n, d, r.cf)
 }
 
 func TestRatNext(t *testing.T) {
 	// Approximations of (10**24 ± 1) / 2**80 at 1.5e-29 precision
-	r0 := NewRat(65352703432539, 79006570561214, 48)
-	r1 := NewRat(34807131698651, 42079240217226, 48)
+	r0, _ := NewRat(65352703432539, 79006570561214, 48)
+	r1, _ := NewRat(34807131698651, 42079240217226, 48)
 
 	r := r0
 	count := 1
@@ -110,7 +118,7 @@ func BenchmarkNewRatFromBig(b *testing.B) {
 
 	var r *Rat
 	for i := 0; i < b.N; i++ {
-		r = NewRatFromBig(n, d, 64)
+		r, _ = NewRatFromBig(n, d, 64)
 	}
 	if b.N == 1 {
 		b.Log(r.Fraction())
@@ -124,7 +132,7 @@ func BenchmarkNewRat128(b *testing.B) {
 
 	var r *Rat
 	for i := 0; i < b.N; i++ {
-		r = NewRat128(n, d, 64)
+		r, _ = NewRat128(n, d, 64)
 	}
 	if b.N == 1 {
 		b.Log(r.Fraction())
@@ -138,8 +146,8 @@ func BenchmarkRat_Next(b *testing.B) {
 
 	// r0 and r1 are approximations of (10**24 ± 1) / 2**80
 	// with a respective precision of 2.76e-36 and 3.89e-37.
-	r0 := NewRat(132262670593960591, 159895757452223520, 60)
-	r1 := NewRat(902438988994577458, 1090981794422466871, 60)
+	r0, _ := NewRat(132262670593960591, 159895757452223520, 60)
+	_, r1 := NewRat(902438988994577458, 1090981794422466871, 60)
 
 	r := r0
 	for i := 0; i < b.N; i++ {
@@ -152,8 +160,8 @@ func BenchmarkRat_Next(b *testing.B) {
 
 func BenchmarkRat_Interval(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		r0 := NewRat(65352703432539, 79006570561214, 48)
-		r1 := NewRat(34807131698651, 42079240217226, 48)
+		r0, _ := NewRat(65352703432539, 79006570561214, 48)
+		_, r1 := NewRat(34807131698651, 42079240217226, 48)
 
 		count := 0
 		for r := r0; !r.Equals(r1); r.Next() {

@@ -36,16 +36,17 @@ func almostDecimalPos(e2 int, digits int, mantbits, precision uint, direction in
 	num.Lsh(num, uint(e2-1))
 	den := big.NewInt(10)
 	den.Exp(den, big.NewInt(int64(e10)), nil)
-	r1 := NewRatFromBig(num, den, mantbits+1)
-	var r2 *Rat
+	var r1, r2 *Rat
 	if direction == -1 {
 		// n/(2*mant+1) is slight too large.
 		// num2 = num * (1 << precision + 1)
 		// den2 = den << precision
+		_, r1 = NewRatFromBig(num, den, mantbits+1)
 		r2 = slightlyOff(num, den, precision, +1, mantbits+1)
 	} else {
-		r2 = r1
 		r1 = slightlyOff(num, den, precision, -1, mantbits+1)
+		r2, _ = NewRatFromBig(num, den, mantbits+1)
+		r2.Next()
 	}
 	for r := r1; r.Less(r2); r.Next() {
 		_, b := r.Fraction()
@@ -69,16 +70,17 @@ func almostDecimalNeg(e2 int, digits int, mantbits, precision uint,
 	num.Exp(num, big.NewInt(int64(e10)), nil)
 	den := big.NewInt(1)
 	den.Lsh(den, uint(e2+1))
-	r1 := NewRatFromBig(num, den, mantbits+1)
-	var r2 *Rat
+	var r1, r2 *Rat
 	if direction == -1 {
 		// n/(2*mant+1) is slight too large.
 		// num2 = num * (1 << precision + 1)
 		// den2 = den << precision
+		_, r1 = NewRatFromBig(num, den, mantbits+1)
 		r2 = slightlyOff(num, den, precision, +1, mantbits+1)
 	} else {
-		r2 = r1
 		r1 = slightlyOff(num, den, precision, -1, mantbits+1)
+		r2, _ = NewRatFromBig(num, den, mantbits+1)
+		r2.Next()
 	}
 	for r := r1; r.Less(r2); r.Next() {
 		_, b := r.Fraction()
@@ -108,15 +110,15 @@ func almostHalfDecimalPos(e2 int, digits int, mantbits, precision uint, directio
 	num.Lsh(num, uint(e2+1))
 	den := big.NewInt(10)
 	den.Exp(den, big.NewInt(int64(e10)), nil)
-	r1 := NewRatFromBig(num, den, mantbits)
-	var r2 *Rat
+	var r1, r2 *Rat
 	if direction == -1 {
 		// (2n+1)/mant is slightly too large.
-		r1.Next() // FIXME
+		_, r1 = NewRatFromBig(num, den, mantbits)
 		r2 = slightlyOff(num, den, precision, +1, mantbits)
 	} else {
-		r2 = r1
 		r1 = slightlyOff(num, den, precision, -1, mantbits)
+		r2, _ = NewRatFromBig(num, den, mantbits)
+		r2.Next()
 	}
 	for r := r1; r.Less(r2); r.Next() {
 		a, b := r.Fraction()
@@ -136,15 +138,15 @@ func almostHalfDecimalNeg(e2 int, digits int, mantbits, precision uint, directio
 	num.Exp(num, big.NewInt(int64(e10)), nil)
 	den := big.NewInt(1)
 	den.Lsh(den, uint(e2-1))
-	r1 := NewRatFromBig(num, den, mantbits)
-	var r2 *Rat
+	var r1, r2 *Rat
 	if direction == -1 {
 		// (2n+1)/mant is slightly too large.
-		r1.Next() // FIXME
+		_, r1 = NewRatFromBig(num, den, mantbits)
 		r2 = slightlyOff(num, den, precision, +1, mantbits)
 	} else {
-		r2 = r1
 		r1 = slightlyOff(num, den, precision, -1, mantbits)
+		r2, _ = NewRatFromBig(num, den, mantbits)
+		r2.Next()
 	}
 	for r := r1; r.Less(r2); r.Next() {
 		a, b := r.Fraction()
@@ -161,10 +163,13 @@ func slightlyOff(num, den *big.Int, precision uint, direction int, maxBits uint)
 	den2 := new(big.Int).Lsh(den, precision)
 	if direction == +1 {
 		num2 = num2.Add(num2, num)
+		_, r := NewRatFromBig(num2, den2, maxBits)
+		return r
 	} else {
 		num2 = num2.Sub(num2, num)
+		r, _ := NewRatFromBig(num2, den2, maxBits)
+		return r
 	}
-	return NewRatFromBig(num2, den2, maxBits)
 }
 
 // A Rat is a positive rational number, internally
@@ -185,45 +190,37 @@ type Rat struct {
 	c, d uint64 // c > d
 }
 
-// NewRat returns a new Rat equal to num/den, except
-// if Bitlen(den) > maxBits, in which case a convergent
-// of the continued fraction expansion will be returned
-// instead.
-func NewRat(num, den uint64, maxBits uint) *Rat {
-	r := &Rat{
-		maxBits: maxBits,
-		a:       1,
-		d:       1,
-	}
-euclid:
-	for den > 0 {
-		quo, rem := num/den, num%den
-		newc := quo*r.c + r.d
-		switch {
-		case bits.Len64(newc) > int(maxBits),
-			r.c > 0 && bits.Len64(newc) == int(maxBits) && newc/r.c != quo:
-			// stop here
-			break euclid
-		}
-		r.appendContinued(quo)
-		num, den = den, rem
-	}
-	r.normalize()
-	return r
+// It will be required to find lower and upper rational
+// approximations r- <= num/den <= r+
+// Assuming that num/den has a continued fraction expansion:
+//   [a0, a1, ... an ...]
+// Then approximations are:
+// on one side:
+//   [a0, ..., ak]
+//   [a0, ..., ak, a_(k+1)]
+
+// NewRats returns two Rats, r1, r2 such that:
+// r1 <= num/den <= r2, and the denominator of r1 and r2
+// have at most maxBits bits.
+func NewRat(num, den uint64, maxBits uint) (lower, upper *Rat) {
+	return NewRat128([2]uint64{0, num}, [2]uint64{0, den}, maxBits)
 }
 
-func NewRatFromBig(num, den *big.Int, maxBits uint) *Rat {
+func NewRatFromBig(num, den *big.Int, maxBits uint) (lower, upper *Rat) {
 	r := &Rat{
 		maxBits: maxBits,
 		a:       1,
 		d:       1,
 	}
+	var midCF []uint64
 euclid:
 	for den.BitLen() > 0 {
 		quoB, remB := new(big.Int), new(big.Int)
 		quoB.DivMod(num, den, remB)
 		if quoB.BitLen() >= 64 {
 			// stop here
+			midCF = append(midCF, r.cf...)
+			midCF = append(midCF, ^uint64(0))
 			break
 		}
 		quo := quoB.Uint64()
@@ -232,26 +229,48 @@ euclid:
 		case bits.Len64(newc) > int(maxBits),
 			r.c > 1 && newc/r.c != quo:
 			// stop here
+			midCF = append(midCF, r.cf...)
+			midCF = append(midCF, quo)
 			break euclid
 		}
 		r.appendContinued(quo)
+		if len(r.cf)%2 == 0 {
+			upper = r.clone()
+		} else {
+			lower = r.clone()
+		}
 		num, den = den, remB
 	}
-	r.normalize()
-	return r
+	if den.BitLen() == 0 {
+		lower, upper = r, r
+	} else {
+		// Find closest approximations
+		l := lower.clone()
+		for l.leqCF(midCF) {
+			lower = l.clone()
+			l.Next()
+		}
+		upper = l.clone()
+	}
+	lower.normalize()
+	upper.normalize()
+	return
 }
 
-func NewRat128(num, den [2]uint64, maxBits uint) *Rat {
+func NewRat128(num, den [2]uint64, maxBits uint) (lower, upper *Rat) {
 	r := &Rat{
 		maxBits: maxBits,
 		a:       1,
 		d:       1,
 	}
+	var midCF []uint64
 euclid:
 	for den != [2]uint64{} {
 		quo, rem := Divmod128(num, den)
 		if quo[0] > 0 {
-			// stop here
+			// stop here, unsupported
+			midCF = append(midCF, r.cf...)
+			midCF = append(midCF, ^uint64(0))
 			break
 		}
 		q := quo[1]
@@ -260,13 +279,32 @@ euclid:
 		case bits.Len64(newc) > int(maxBits),
 			r.c > 1 && newc/r.c != q:
 			// stop here
+			midCF = append(midCF, r.cf...)
+			midCF = append(midCF, q)
 			break euclid
 		}
 		r.appendContinued(q)
+		if len(r.cf)%2 == 0 {
+			upper = r.clone()
+		} else {
+			lower = r.clone()
+		}
 		num, den = den, rem
 	}
-	r.normalize()
-	return r
+	if den == [2]uint64{} {
+		lower, upper = r, r
+	} else {
+		// Find closest approximations
+		l := lower.clone()
+		for l.leqCF(midCF) {
+			lower = l.clone()
+			l.Next()
+		}
+		upper = l.clone()
+	}
+	lower.normalize()
+	upper.normalize()
+	return
 }
 
 func (r *Rat) appendContinued(q uint64) {
@@ -282,6 +320,37 @@ func (r *Rat) normalize() {
 		r.b = r.a - r.b
 		r.d = r.c - r.d
 	}
+}
+
+// leq returns whether r is less than or equal to
+// the fraction represented in continuous form (cf)
+func (r *Rat) leqCF(cf []uint64) bool {
+	for i := 0; i < len(r.cf) && i < len(cf); i++ {
+		if r.cf[i] != cf[i] {
+			if i%2 == 0 {
+				return r.cf[i] <= cf[i]
+			} else {
+				return r.cf[i] >= cf[i]
+			}
+		}
+	}
+	// otherwise r.cf is a prefix of cf (or conversely)
+	switch {
+	case len(r.cf) == len(cf),
+		// [3] <= [3, 7]
+		len(r.cf) < len(cf) && len(r.cf)%2 == 1,
+		// [1, 3, 7] <= [1, 3]
+		len(r.cf) > len(cf) && len(cf)%2 == 0:
+		return true
+	}
+	return false
+}
+
+func (r *Rat) clone() *Rat {
+	rr := *r
+	rr.cf = nil
+	rr.cf = append(rr.cf, r.cf...)
+	return &rr
 }
 
 func (r *Rat) Fraction() (num, den uint64) {

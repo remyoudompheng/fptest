@@ -11,18 +11,19 @@ func TestCarry64(t *testing.T) {
 	// * atof32: multiplier is a n-bit mantissa and we need
 	//   a 25-bit significand.
 
-	// 36 bits yields 5 edge cases.
-	// 33 bits yields 1 edge case:
-	// 25287277 * 1e-30 => 25287277p+108 = 8206190558.000000024e30
-	// 32 bits has 1 edge case:
-	// 23215553 * 1e-11 => 23215553p+44 = 408412327500000002048
-	const FTOA_BITS = 31
+	// 36 bits yields 6 edge cases.
+	// 35 bits yields 3 edge cases
+	// - 29842624 * 1e58
+	// - 22550054 * 1e61
+	// - 29753718 * 1e-61
+	// 34 bits yields no error.
+	const FTOA_BITS = 34
 
-	// 32 bits has 1 error:
-	// 4192293909e-14 = 46094759.00000000016p-40
-	// 30 bits has 1 error:
-	// 530184534e-13 = 29147203.0000000008192p-39
-	const ATOF_BITS = 29
+	// 35 bits has exactly 1 edge case:
+	// - 13860322284 * 1e-48
+	// 34, 33, 32 bits has the same edge case
+	// 31 bits yields no error
+	const ATOF_BITS = 31
 
 	for i := 28; i < 70; i++ {
 		// Don't test exact powers of 10.
@@ -64,8 +65,9 @@ func testNoCarry(t *testing.T, m1, m2 [2]uint64, inbits, shift int) {
 	if shift >= 64 {
 		pow2 = [2]uint64{1 << uint(shift-64), 0}
 	}
-	r1 := NewRat128(m1, pow2, uint(inbits))
-	r2 := NewRat128(m2, pow2, uint(inbits))
+	_, r1 := NewRat128(m1, pow2, uint(inbits))
+	r2, _ := NewRat128(m2, pow2, uint(inbits))
+	r2.Next()
 	//t.Logf("(0x%016x%016x, 0x%016x%016x) >> %d",
 	//	m1[0], m1[1], m2[0], m2[1], shift)
 	//t.Log(r1.Fraction())
@@ -73,6 +75,16 @@ func testNoCarry(t *testing.T, m1, m2 [2]uint64, inbits, shift int) {
 
 	for r := r1; r.Less(r2); r.Next() {
 		num, den := r.Fraction()
+		switch num {
+		case 65536, 131072, 262144, 524288, 1048576,
+			1 << 21, 1 << 22, 1 << 23, 1 << 24, 1 << 25:
+			switch den {
+			case 48828125, 244140625,
+				1220703125, 6103515625, 30517578125:
+				// don't error on exact 2*a / 5*b
+				continue
+			}
+		}
 		t.Errorf("%d * (0x%016x%016x, 0x%016x%016x) >> %d contains %d...\n",
 			den, m1[0], m1[1], m2[0], m2[1], shift, num)
 	}
