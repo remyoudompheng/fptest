@@ -10,8 +10,9 @@ import (
 // mant × 2**e2 such that the midpoint (mant+1/2)×2**e2
 // is very close to n × 10**k where n is an integer.
 //
-// direction = +1 will returns numbers slightly above n × 10**k
-// direction = -1 will returns numbers slightly below n × 10**k
+// direction = +1 will return numbers slightly above n × 10**k
+// direction = 0  will return exact midpoints
+// direction = -1 will return numbers slightly below n × 10**k
 //
 // Very close is interpreted as a relative difference less than
 // 1 / 2^precision.
@@ -36,17 +37,24 @@ func almostDecimalPos(e2 int, digits int, mantbits, precision uint, direction in
 	num.Lsh(num, uint(e2-1))
 	den := big.NewInt(10)
 	den.Exp(den, big.NewInt(int64(e10)), nil)
+	lo, up := NewRatFromBig(num, den, mantbits+1)
+	if lo.Equals(up) != (direction == 0) {
+		return
+	}
 	var r1, r2 *Rat
-	if direction == -1 {
+	switch direction {
+	case -1:
 		// n/(2*mant+1) is slight too large.
 		// num2 = num * (1 << precision + 1)
 		// den2 = den << precision
-		_, r1 = NewRatFromBig(num, den, mantbits+1)
+		r1 = up
 		r2 = slightlyOff(num, den, precision, +1, mantbits+1)
-	} else {
+	case 0:
+		r1 = lo
+		r2 = up.clone().Next()
+	case 1:
 		r1 = slightlyOff(num, den, precision, -1, mantbits+1)
-		r2, _ = NewRatFromBig(num, den, mantbits+1)
-		r2.Next()
+		r2 = lo.Next()
 	}
 	for r := r1; r.Less(r2); r.Next() {
 		_, b := r.Fraction()
@@ -70,17 +78,25 @@ func almostDecimalNeg(e2 int, digits int, mantbits, precision uint,
 	num.Exp(num, big.NewInt(int64(e10)), nil)
 	den := big.NewInt(1)
 	den.Lsh(den, uint(e2+1))
+
+	lo, up := NewRatFromBig(num, den, mantbits+1)
+	if lo.Equals(up) != (direction == 0) {
+		return
+	}
 	var r1, r2 *Rat
-	if direction == -1 {
+	switch direction {
+	case -1:
 		// n/(2*mant+1) is slight too large.
 		// num2 = num * (1 << precision + 1)
 		// den2 = den << precision
-		_, r1 = NewRatFromBig(num, den, mantbits+1)
+		r1 = up
 		r2 = slightlyOff(num, den, precision, +1, mantbits+1)
-	} else {
+	case 0:
+		r1 = lo
+		r2 = up.clone().Next()
+	case 1:
 		r1 = slightlyOff(num, den, precision, -1, mantbits+1)
-		r2, _ = NewRatFromBig(num, den, mantbits+1)
-		r2.Next()
+		r2 = lo.Next()
 	}
 	for r := r1; r.Less(r2); r.Next() {
 		_, b := r.Fraction()
@@ -92,6 +108,11 @@ func almostDecimalNeg(e2 int, digits int, mantbits, precision uint,
 
 // AlmostHalfDecimal enumerates floating-point numbers mant*2**e2
 // are very close to half a decimal number (n+1/2)*10**k.
+//
+// Direction = -1 returns numbers slightly below
+// Direction = +1 returns numbers slightly above
+// Direction = 0 returns numbers exactly equal to half a decimal
+//
 func AlmostHalfDecimal(e2 int, digits int, mantbits, precision uint,
 	direction int, denormal bool, f func(x float64, n uint64, k int)) {
 	if e2 >= 0 {
@@ -110,16 +131,25 @@ func almostHalfDecimalPos(e2 int, digits int, mantbits, precision uint, directio
 	num.Lsh(num, uint(e2+1))
 	den := big.NewInt(10)
 	den.Exp(den, big.NewInt(int64(e10)), nil)
-	var r1, r2 *Rat
-	if direction == -1 {
-		// (2n+1)/mant is slightly too large.
-		_, r1 = NewRatFromBig(num, den, mantbits)
-		r2 = slightlyOff(num, den, precision, +1, mantbits)
-	} else {
-		r1 = slightlyOff(num, den, precision, -1, mantbits)
-		r2, _ = NewRatFromBig(num, den, mantbits)
-		r2.Next()
+
+	lo, up := NewRatFromBig(num, den, mantbits)
+	if lo.Equals(up) != (direction == 0) {
+		return
 	}
+	var r1, r2 *Rat
+	switch direction {
+	case -1:
+		// (2n+1)/mant is slightly too large.
+		r1 = up
+		r2 = slightlyOff(num, den, precision, +1, mantbits)
+	case 0:
+		r1 = lo
+		r2 = up.clone().Next()
+	case 1:
+		r1 = slightlyOff(num, den, precision, -1, mantbits)
+		r2 = lo.Next()
+	}
+
 	for r := r1; r.Less(r2); r.Next() {
 		a, b := r.Fraction()
 		if a%2 == 1 && bits.Len64(b) == int(mantbits) {
@@ -138,16 +168,25 @@ func almostHalfDecimalNeg(e2 int, digits int, mantbits, precision uint, directio
 	num.Exp(num, big.NewInt(int64(e10)), nil)
 	den := big.NewInt(1)
 	den.Lsh(den, uint(e2-1))
-	var r1, r2 *Rat
-	if direction == -1 {
-		// (2n+1)/mant is slightly too large.
-		_, r1 = NewRatFromBig(num, den, mantbits)
-		r2 = slightlyOff(num, den, precision, +1, mantbits)
-	} else {
-		r1 = slightlyOff(num, den, precision, -1, mantbits)
-		r2, _ = NewRatFromBig(num, den, mantbits)
-		r2.Next()
+
+	lo, up := NewRatFromBig(num, den, mantbits)
+	if lo.Equals(up) != (direction == 0) {
+		return
 	}
+	var r1, r2 *Rat
+	switch direction {
+	case -1:
+		// (2n+1)/mant is slightly too large.
+		r1 = up
+		r2 = slightlyOff(num, den, precision, +1, mantbits)
+	case 0:
+		r1 = lo
+		r2 = up.clone().Next()
+	case 1:
+		r1 = slightlyOff(num, den, precision, -1, mantbits)
+		r2 = lo.Next()
+	}
+
 	for r := r1; r.Less(r2); r.Next() {
 		a, b := r.Fraction()
 		if a%2 == 1 && (denormal || bits.Len64(b) == int(mantbits)) {
@@ -228,9 +267,18 @@ euclid:
 		switch {
 		case bits.Len64(newc) > int(maxBits),
 			r.c > 1 && newc/r.c != quo:
-			// stop here
+			// Compute next continued fraction.
 			midCF = append(midCF, r.cf...)
 			midCF = append(midCF, quo)
+			// There is an overflow. Use a smaller quo and stop
+			var maxc uint64 = 1<<(maxBits-1) + (1<<(maxBits-1) - 1)
+			maxquo := (maxc - r.d) / r.c
+			r.appendContinued(maxquo)
+			if len(r.cf)%2 == 0 {
+				upper = r.clone()
+			} else {
+				lower = r.clone()
+			}
 			break euclid
 		}
 		r.appendContinued(quo)
@@ -244,7 +292,6 @@ euclid:
 	if den.BitLen() == 0 {
 		lower, upper = r, r
 	} else {
-		// Find closest approximations
 		l := lower.clone()
 		for l.leqCF(midCF) {
 			lower = l.clone()
@@ -408,7 +455,7 @@ func (r *Rat) peekChild(idx int) (num, den uint64) {
 
 // Next mutates r to the next rational number in the Farey sequence
 // F_(1<<maxBits-1).
-func (r *Rat) Next() {
+func (r *Rat) Next() *Rat {
 	// The next element in the tree is either:
 	// - the left-most leaf from the right child
 	// - the first right-ancestor, i.e. N such that
@@ -471,4 +518,5 @@ func (r *Rat) Next() {
 			}
 		}
 	}
+	return r
 }

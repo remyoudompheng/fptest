@@ -156,7 +156,7 @@ func TestTortureFixed64(t *testing.T) {
 			if !bytes.Equal(s1, s2) {
 				t.Errorf("x=%.32e digits=%d => %q %q ERR", x, digits, s1, s2)
 				errors++
-			} else if digits <= 2 {
+			} else if false {
 				t.Logf("x=%.32e digits=%d => %q %q OK", x, digits, s1, s2)
 			}
 		}
