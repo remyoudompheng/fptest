@@ -1,14 +1,16 @@
 package fptest
 
 import (
+	"fmt"
+	"math/big"
 	"testing"
 )
 
 func TestCarry64(t *testing.T) {
 	// Use cases includes:
 	// * ftoa32: multiplier is a 25-bit mantissa and we need
-	//   a 32-bit significand.
-	// * atof32: multiplier is a n-bit mantissa and we need
+	//   a N-bit significand.
+	// * atof32: multiplier is a N-bit mantissa and we need
 	//   a 25-bit significand.
 
 	// 36 bits yields 6 edge cases.
@@ -50,6 +52,59 @@ func TestCarry64(t *testing.T) {
 		t.Log("atof, exponent", -i)
 		testNoCarry(t, m1, m2, ATOF_BITS, 64+ATOF_BITS-1-25)
 	}
+
+	t.Logf("tested multiplier of size %d, shift %d",
+		25, 64+24-FTOA_BITS)
+	t.Logf("tested multiplier of size %d, shift %d",
+		ATOF_BITS, 64+ATOF_BITS-1-25)
+}
+
+func TestCarry128(t *testing.T) {
+	const mantbitsFtoa = 55
+	const mantbitsAtof = 54
+	// Use cases includes:
+	// * ftoa64: multiplier is a 55-bit mantissa and we need
+	//   a N-bit significand.
+	// * atof64: multiplier is a N-bit mantissa and we need
+	//   a 54-bit significand.
+
+	// For FTOA_BITS = 64, there is a single edge case:
+	// 34742740578729299 * 1e167 for a 55 bit mantissa.
+	const FTOA_BITS = 63
+	const ATOF_BITS = 64
+
+	for i := 56; i < len(pow10wide); i++ {
+		// Don't test exact powers of 10.
+		m1 := pow10wide[i]
+		m2 := pow10wide[i]
+		m2[1]++
+
+		t.Log("ftoa, exponent", i)
+		testNoCarry(t, m1, m2, mantbitsFtoa,
+			127+mantbitsFtoa-FTOA_BITS)
+		t.Log("atof, exponent", i)
+		testNoCarry(t, m1, m2, ATOF_BITS,
+			127+ATOF_BITS-mantbitsAtof)
+	}
+
+	for i := 28; i < len(invpow10wide); i++ {
+		// Don't test exact powers of 10.
+		m1 := invpow10wide[i]
+		m1[1]--
+		m2 := invpow10wide[i]
+
+		t.Log("ftoa, exponent", -i)
+		testNoCarry(t, m1, m2, mantbitsFtoa,
+			127+mantbitsFtoa-FTOA_BITS)
+		t.Log("atof, exponent", -i)
+		testNoCarry(t, m1, m2, ATOF_BITS,
+			127+ATOF_BITS-mantbitsAtof)
+	}
+
+	t.Logf("tested multiplier of size %d, shift %d",
+		mantbitsFtoa, 127+mantbitsFtoa-FTOA_BITS)
+	t.Logf("tested multiplier of size %d, shift %d",
+		ATOF_BITS, 127+ATOF_BITS-mantbitsAtof)
 }
 
 // testNoCarry takes 128-bit values m1 and m2, and checks
@@ -61,13 +116,29 @@ func testNoCarry(t *testing.T, m1, m2 [2]uint64, inbits, shift int) {
 	//    k * m1 <= K << shift <= k * m2
 	// i.e.
 	//    m1 / 2^shift <= K / k <= m2 / 2^shift
-	pow2 := [2]uint64{0, 1 << uint(shift)}
-	if shift >= 64 {
-		pow2 = [2]uint64{1 << uint(shift-64), 0}
+	var r1, r2 *Rat
+	if shift < 128 {
+		pow2 := [2]uint64{0, 1 << uint(shift)}
+		if shift >= 64 {
+			pow2 = [2]uint64{1 << uint(shift-64), 0}
+		}
+		_, r1 = NewRat128(m1, pow2, uint(inbits))
+		r2, _ = NewRat128(m2, pow2, uint(inbits))
+		r2.Next()
+	} else {
+		n1, ok1 := new(big.Int).SetString(
+			fmt.Sprintf("%016x%016x", m1[0], m1[1]), 16)
+		n2, ok2 := new(big.Int).SetString(
+			fmt.Sprintf("%016x%016x", m2[0], m2[1]), 16)
+		if !ok1 || !ok2 {
+			t.Fatal("impossible")
+		}
+		pow2 := big.NewInt(1)
+		pow2.Lsh(pow2, uint(shift))
+		_, r1 = NewRatFromBig(n1, pow2, uint(inbits))
+		r2, _ = NewRatFromBig(n2, pow2, uint(inbits))
+		r2.Next()
 	}
-	_, r1 := NewRat128(m1, pow2, uint(inbits))
-	r2, _ := NewRat128(m2, pow2, uint(inbits))
-	r2.Next()
 	//t.Logf("(0x%016x%016x, 0x%016x%016x) >> %d",
 	//	m1[0], m1[1], m2[0], m2[1], shift)
 	//t.Log(r1.Fraction())
