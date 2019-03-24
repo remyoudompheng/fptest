@@ -158,6 +158,16 @@ func BenchmarkRat_Next(b *testing.B) {
 	}
 }
 
+func BenchmarkRat_NextHard(b *testing.B) {
+	r, _ := NewRat(2147483648, 9765625, 54)
+	for i := 0; i < b.N; i++ {
+		r1 := r.clone().Next()
+		if r1.a != 3961408123823333193 || 18014398500887788 != r1.c {
+			b.Fatal("bad result")
+		}
+	}
+}
+
 func BenchmarkRat_Interval(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r0, _ := NewRat(65352703432539, 79006570561214, 48)

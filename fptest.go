@@ -439,10 +439,24 @@ func (r *Rat) Next() *Rat {
 	if bits.Len64(den) <= int(r.maxBits) && den >= r.c {
 		// Right child is within bounds, go left-most.
 		r.child(1)
+
 		for {
 			_, den = r.peekChild(0)
 			if bits.Len64(den) > int(r.maxBits) || den < r.c {
 				break
+			}
+			if len(r.cf)%2 == 0 {
+				// Going left-most is just increasing the last coefficient
+				// while keeping r.c length <= maxBits.
+				// Try skipping many children.
+				var maxc uint64 = 1<<(r.maxBits-1) + (1<<(r.maxBits-1) - 1)
+				maxquo := (maxc - r.c) / r.d
+				if maxquo > 0 {
+					r.cf[len(r.cf)-1] += maxquo
+					r.a += maxquo * r.b
+					r.c += maxquo * r.d
+					continue
+				}
 			}
 			r.child(0)
 		}
