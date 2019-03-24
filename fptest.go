@@ -16,7 +16,8 @@ import (
 //
 // Very close is interpreted as a relative difference less than
 // 1 / 2^precision.
-func AlmostDecimalMidpoint(e2 int, digits int, mantbits, precision uint, direction int, denormal bool, f func(float64)) {
+func AlmostDecimalMidpoint(e2 int, digits int, mantbits, precision uint, direction int, denormal bool,
+	f func(x float64, n uint64, k int)) {
 	if e2 >= 0 {
 		almostDecimalPos(e2, digits, mantbits, precision, direction, f)
 	} else {
@@ -27,7 +28,8 @@ func AlmostDecimalMidpoint(e2 int, digits int, mantbits, precision uint, directi
 const log2overlog10 = 0.30102999566398114
 
 // almostDecimalPos is AlmostDecimalMidpoint for e2 >= 0.
-func almostDecimalPos(e2 int, digits int, mantbits, precision uint, direction int, f func(float64)) {
+func almostDecimalPos(e2 int, digits int, mantbits, precision uint, direction int,
+	f func(x float64, n uint64, k int)) {
 	// Find all rationals n / (2*mant+1) close to 2**(e2-1) / 10**k
 	//
 	// (k + digits) * log(10) == (mantbits + e2) * log(2)
@@ -43,10 +45,10 @@ func almostDecimalPos(e2 int, digits int, mantbits, precision uint, direction in
 	r1, r2 := ratRange(num, den, precision, -direction, mantbits+1)
 
 	for r := r1; r.Less(r2); r.Next() {
-		_, b := r.Fraction()
+		a, b := r.Fraction()
 		//fmt.Println(r.cf, r.a, r.c)
 		if b%2 == 1 && bits.Len64(b) == int(mantbits+1) {
-			f(math.Ldexp(float64(b/2), e2))
+			f(math.Ldexp(float64(b/2), e2), a, e10)
 		}
 	}
 }
@@ -54,11 +56,14 @@ func almostDecimalPos(e2 int, digits int, mantbits, precision uint, direction in
 // almostDecimalNeg enumerates numbers mant/2**e2 such that
 // the midpoint (mant+1/2)/2**e2 is very close to n/10**k for some integer n.
 func almostDecimalNeg(e2 int, digits int, mantbits, precision uint,
-	direction int, denormals bool, f func(float64)) {
+	direction int, denormals bool, f func(x float64, n uint64, k int)) {
 	// Find all rationals n / (2*mant+1) close to 10**k/2**(e2+1)
 	//
 	// (digits - k) * log(10) == (mantbits - e2) * log(2)
 	e10 := int(float64(e2-int(mantbits))*log2overlog10) + digits
+	if e10 < 0 { // FIXME: avoid this happening
+		e10 = 0
+	}
 
 	num := big.NewInt(10)
 	num.Exp(num, big.NewInt(int64(e10)), nil)
@@ -70,9 +75,9 @@ func almostDecimalNeg(e2 int, digits int, mantbits, precision uint,
 	r1, r2 := ratRange(num, den, precision, -direction, mantbits+1)
 
 	for r := r1; r.Less(r2); r.Next() {
-		_, b := r.Fraction()
+		a, b := r.Fraction()
 		if b%2 == 1 && (denormals || bits.Len64(b) == int(mantbits+1)) {
-			f(math.Ldexp(float64(b/2), -e2))
+			f(math.Ldexp(float64(b/2), -e2), a, -e10)
 		}
 	}
 }

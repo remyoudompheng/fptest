@@ -81,6 +81,11 @@ The following torture tests are implemented in Go:
   neighbours. The edge cases make it hard to find the correct rounding
   direction.
 
+- TestTortureAtof32/64: check edge cases for parsing floats.
+  The inputs are decimal representations whch are very close
+  to midpoints between consecutive float32/float64s. The iterator
+  gives the expected answer without using strconv functions.
+
 Exact midpoints (commonly found when using small exponents) are not tested.
 
 ## References

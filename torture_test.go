@@ -15,7 +15,7 @@ func TestTortureShortest64(t *testing.T) {
 	buf2 := make([]byte, 64)
 	roundUp := false
 	checkShortest := false
-	do := func(x float64) {
+	do := func(x float64, _ uint64, _ int) {
 		s1 := ryu.AppendFloat64(buf1[:0], x)
 		s2 := strconv.AppendFloat(buf2[:0], x, 'e', -1, 64)
 		if !bytes.Equal(s1, s2) {
@@ -83,7 +83,7 @@ func TestTortureShortest32(t *testing.T) {
 	count := 0
 	buf1 := make([]byte, 32)
 	buf2 := make([]byte, 32)
-	do := func(x float64) {
+	do := func(x float64, _ uint64, _ int) {
 		s1 := ryu.AppendFloat32(buf1[:0], float32(x))
 		s2 := strconv.AppendFloat(buf2[:0], x, 'e', -1, 32)
 		if !bytes.Equal(s1, s2) {
@@ -116,6 +116,124 @@ func TestTortureShortest32(t *testing.T) {
 				AlmostDecimalMidpoint(-(exp - 1), digits, 23, uint(basePrec+2*digits), -1, true, do)
 			} else {
 				AlmostDecimalMidpoint(-exp, digits, 24, uint(basePrec+2*digits), +1, false, do)
+				AlmostDecimalMidpoint(-exp, digits, 24, uint(basePrec+2*digits), -1, false, do)
+			}
+		}
+		t.Logf("%d digits: %d numbers tested", digits, count)
+	}
+}
+
+func TestTortureAtof64(t *testing.T) {
+	count := 0
+	buf := make([]byte, 64)
+	roundUp := false
+	do := func(x float64, n uint64, k int) {
+		y := math.Nextafter(x, 2*x)
+		// (x+y)/2 is very close to n * 10**k
+
+		s := strconv.AppendUint(buf[:0], n, 10)
+		s = append(s, 'e')
+		s = strconv.AppendInt(s, int64(k), 10)
+
+		z, err := strconv.ParseFloat(string(s), 64)
+		if err != nil {
+			t.Errorf("could not parse %q: %s", s, err)
+			return
+		}
+		expect := x
+		if roundUp {
+			expect = y
+		}
+		if z != expect {
+			t.Errorf("expected to parse %q as %b, got %b", s, expect, z)
+		}
+		//fmt.Printf("parse %q => %b (lo=%.42e, up=%.42e)\n", s, expect, x, y)
+		count++
+	}
+
+	for digits := 18; digits > 0; digits-- {
+		difficulty := 48 + 3*digits
+		if testing.Short() {
+			difficulty += 4
+		}
+		if difficulty < 64 {
+			difficulty = 64
+		}
+		count = 0
+		for exp := 55; exp < 1024-52; exp++ {
+			roundUp = false
+			AlmostDecimalMidpoint(exp, digits, 53, uint(difficulty), +1, false, do)
+			roundUp = true
+			AlmostDecimalMidpoint(exp, digits, 53, uint(difficulty), -1, false, do)
+		}
+		for exp := 55; exp < 1024+52; exp++ {
+			if exp == 1023+52 {
+				// denormals
+				roundUp = false
+				AlmostDecimalMidpoint(-(exp - 1), digits, 52, uint(difficulty), +1, true, do)
+				roundUp = true
+				AlmostDecimalMidpoint(-(exp - 1), digits, 52, uint(difficulty), -1, true, do)
+			} else {
+				roundUp = false
+				AlmostDecimalMidpoint(-exp, digits, 53, uint(difficulty), +1, false, do)
+				roundUp = true
+				AlmostDecimalMidpoint(-exp, digits, 53, uint(difficulty), -1, false, do)
+			}
+		}
+		t.Logf("%d numbers tested (%d decimal digits)", count, digits)
+	}
+}
+
+func TestTortureAtof32(t *testing.T) {
+	count := 0
+	roundUp := false
+	buf := make([]byte, 32)
+	do := func(xx float64, n uint64, k int) {
+		x := float32(xx)
+		y := math.Nextafter32(x, 2*x)
+
+		s := strconv.AppendUint(buf[:0], n, 10)
+		s = append(s, 'e')
+		s = strconv.AppendInt(s, int64(k), 10)
+
+		zz, err := strconv.ParseFloat(string(s), 32)
+		if err != nil {
+			t.Errorf("could not parse %q: %s", s, err)
+			return
+		}
+		z := float32(zz)
+		expect := x
+		if roundUp {
+			expect = y
+		}
+		//fmt.Printf("x=%b y=%b midpoint=%.30e\n", x, y, (float64(x)+float64(y))/2)
+		if z != expect {
+			t.Errorf("expected to parse %q as %b, got %b", s, expect, z)
+		}
+		//fmt.Printf("parse %q => %b got %b (lo=%.18e, up=%.18e)\n", s, expect, z, x, y)
+		count++
+	}
+
+	basePrec := 24
+	for digits := 10; digits > 0; digits-- {
+		count = 0
+		for exp := 10; exp <= 127-23; exp++ {
+			roundUp = false
+			AlmostDecimalMidpoint(exp, digits, 24, uint(basePrec+2*digits), +1, false, do)
+			roundUp = true
+			AlmostDecimalMidpoint(exp, digits, 24, uint(basePrec+2*digits), -1, false, do)
+		}
+		for exp := 10; exp <= 127+23; exp++ {
+			if exp == 127+23 {
+				// denormals
+				roundUp = false
+				AlmostDecimalMidpoint(-(exp - 1), digits, 23, uint(basePrec+2*digits), +1, true, do)
+				roundUp = true
+				AlmostDecimalMidpoint(-(exp - 1), digits, 23, uint(basePrec+2*digits), -1, true, do)
+			} else {
+				roundUp = false
+				AlmostDecimalMidpoint(-exp, digits, 24, uint(basePrec+2*digits), +1, false, do)
+				roundUp = true
 				AlmostDecimalMidpoint(-exp, digits, 24, uint(basePrec+2*digits), -1, false, do)
 			}
 		}
