@@ -105,12 +105,12 @@ func TestTortureShortest32(t *testing.T) {
 	basePrec := 24
 	for digits := 10; digits > 0; digits-- {
 		count = 0
-		for exp := 10; exp < 127-23; exp++ {
+		for exp := 10; exp <= 127-23; exp++ {
 			AlmostDecimalMidpoint(exp, digits, 24, uint(basePrec+2*digits), +1, false, do)
 			AlmostDecimalMidpoint(exp, digits, 24, uint(basePrec+2*digits), -1, false, do)
 		}
-		for exp := 10; exp < 127+23; exp++ {
-			if exp == 126+23 {
+		for exp := 10; exp <= 127+23; exp++ {
+			if exp == 127+23 {
 				// denormals
 				AlmostDecimalMidpoint(-(exp - 1), digits, 23, uint(basePrec+2*digits), +1, true, do)
 				AlmostDecimalMidpoint(-(exp - 1), digits, 23, uint(basePrec+2*digits), -1, true, do)
@@ -235,14 +235,14 @@ func TestTortureFixed32(t *testing.T) {
 			}
 		}
 
-		for exp := 10; exp < 127-23; exp++ {
+		for exp := 10; exp <= 127-23; exp++ {
 			roundUp = true
 			AlmostHalfDecimal(exp, digits, 24, uint(prec+2*digits), +1, false, do)
 			roundUp = false
 			AlmostHalfDecimal(exp, digits, 24, uint(prec+2*digits), -1, false, do)
 		}
-		for exp := 10; exp < 127+23; exp++ {
-			if exp == 126+23 {
+		for exp := 10; exp <= 127+23; exp++ {
+			if exp == 127+23 {
 				// denormals
 				roundUp = true
 				AlmostHalfDecimal(-(exp - 1), digits, 23, uint(prec+2*digits), +1, true, do)
