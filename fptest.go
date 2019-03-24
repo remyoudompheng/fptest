@@ -37,25 +37,11 @@ func almostDecimalPos(e2 int, digits int, mantbits, precision uint, direction in
 	num.Lsh(num, uint(e2-1))
 	den := big.NewInt(10)
 	den.Exp(den, big.NewInt(int64(e10)), nil)
-	lo, up := NewRatFromBig(num, den, mantbits+1)
-	if lo.Equals(up) != (direction == 0) {
-		return
-	}
-	var r1, r2 *Rat
-	switch direction {
-	case -1:
-		// n/(2*mant+1) is slight too large.
-		// num2 = num * (1 << precision + 1)
-		// den2 = den << precision
-		r1 = up
-		r2 = slightlyOff(num, den, precision, +1, mantbits+1)
-	case 0:
-		r1 = lo
-		r2 = up.clone().Next()
-	case 1:
-		r1 = slightlyOff(num, den, precision, -1, mantbits+1)
-		r2 = lo.Next()
-	}
+
+	// Midpoints below n/10**k are such that
+	// n / (2*mant+1) is above num/den
+	r1, r2 := ratRange(num, den, precision, -direction, mantbits+1)
+
 	for r := r1; r.Less(r2); r.Next() {
 		_, b := r.Fraction()
 		//fmt.Println(r.cf, r.a, r.c)
@@ -79,25 +65,10 @@ func almostDecimalNeg(e2 int, digits int, mantbits, precision uint,
 	den := big.NewInt(1)
 	den.Lsh(den, uint(e2+1))
 
-	lo, up := NewRatFromBig(num, den, mantbits+1)
-	if lo.Equals(up) != (direction == 0) {
-		return
-	}
-	var r1, r2 *Rat
-	switch direction {
-	case -1:
-		// n/(2*mant+1) is slight too large.
-		// num2 = num * (1 << precision + 1)
-		// den2 = den << precision
-		r1 = up
-		r2 = slightlyOff(num, den, precision, +1, mantbits+1)
-	case 0:
-		r1 = lo
-		r2 = up.clone().Next()
-	case 1:
-		r1 = slightlyOff(num, den, precision, -1, mantbits+1)
-		r2 = lo.Next()
-	}
+	// Midpoints below n/10**k are such that
+	// n / (2*mant+1) is above num/den
+	r1, r2 := ratRange(num, den, precision, -direction, mantbits+1)
+
 	for r := r1; r.Less(r2); r.Next() {
 		_, b := r.Fraction()
 		if b%2 == 1 && (denormals || bits.Len64(b) == int(mantbits+1)) {
@@ -132,23 +103,9 @@ func almostHalfDecimalPos(e2 int, digits int, mantbits, precision uint, directio
 	den := big.NewInt(10)
 	den.Exp(den, big.NewInt(int64(e10)), nil)
 
-	lo, up := NewRatFromBig(num, den, mantbits)
-	if lo.Equals(up) != (direction == 0) {
-		return
-	}
-	var r1, r2 *Rat
-	switch direction {
-	case -1:
-		// (2n+1)/mant is slightly too large.
-		r1 = up
-		r2 = slightlyOff(num, den, precision, +1, mantbits)
-	case 0:
-		r1 = lo
-		r2 = up.clone().Next()
-	case 1:
-		r1 = slightlyOff(num, den, precision, -1, mantbits)
-		r2 = lo.Next()
-	}
+	// Floats below a half-decimal are such that
+	// (2n+1)/mant is above num/den
+	r1, r2 := ratRange(num, den, precision, -direction, mantbits)
 
 	for r := r1; r.Less(r2); r.Next() {
 		a, b := r.Fraction()
@@ -169,23 +126,9 @@ func almostHalfDecimalNeg(e2 int, digits int, mantbits, precision uint, directio
 	den := big.NewInt(1)
 	den.Lsh(den, uint(e2-1))
 
-	lo, up := NewRatFromBig(num, den, mantbits)
-	if lo.Equals(up) != (direction == 0) {
-		return
-	}
-	var r1, r2 *Rat
-	switch direction {
-	case -1:
-		// (2n+1)/mant is slightly too large.
-		r1 = up
-		r2 = slightlyOff(num, den, precision, +1, mantbits)
-	case 0:
-		r1 = lo
-		r2 = up.clone().Next()
-	case 1:
-		r1 = slightlyOff(num, den, precision, -1, mantbits)
-		r2 = lo.Next()
-	}
+	// Floats below a half-decimal are such that
+	// (2n+1)/mant is above num/den
+	r1, r2 := ratRange(num, den, precision, -direction, mantbits)
 
 	for r := r1; r.Less(r2); r.Next() {
 		a, b := r.Fraction()
@@ -193,6 +136,38 @@ func almostHalfDecimalNeg(e2 int, digits int, mantbits, precision uint, directio
 			f(math.Ldexp(float64(b), -e2), a/2, -e10)
 		}
 	}
+}
+
+// ratRange returns an half-open interval [r1, r2) which enumerates
+// rationals with a given bit length, very close to X=num/den
+// * direction=1 strictly above X up to a 2^-precision relative difference
+// * direction=-1 strictly below X up to a 2^-precision relative difference
+// * direction=0 exactly equal
+func ratRange(num, den *big.Int, precision uint, direction int, maxBits uint) (r1, r2 *Rat) {
+	lo, up := NewRatFromBig(num, den, maxBits)
+	upp := up.clone().Next()
+	switch direction {
+	case 1:
+		r1 = up
+		if lo.Equals(up) {
+			r1 = upp
+		}
+		r2 = slightlyOff(num, den, precision, +1, maxBits)
+	case 0:
+		if !lo.Equals(up) {
+			return lo, lo // an empty range
+		}
+		r1 = lo
+		r2 = upp
+	case -1:
+		r1 = slightlyOff(num, den, precision, -1, maxBits)
+		if lo.Equals(up) {
+			r2 = lo // excluded
+		} else {
+			r2 = lo.Next()
+		}
+	}
+	return
 }
 
 func slightlyOff(num, den *big.Int, precision uint, direction int, maxBits uint) *Rat {
