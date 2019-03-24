@@ -34,10 +34,10 @@ func TestCarry64(t *testing.T) {
 		m1[1] = pow10wide[i][0]
 		m2[1] = pow10wide[i][0] + 1
 
-		t.Log("ftoa, exponent", i)
-		testNoCarry(t, m1, m2, 25, 64+24-FTOA_BITS)
-		t.Log("atof, exponent", i)
-		testNoCarry(t, m1, m2, ATOF_BITS, 64+ATOF_BITS-1-25)
+		title := fmt.Sprint("ftoa, exponent ", i)
+		testNoCarry(t, title, m1, m2, 25, 64+24-FTOA_BITS)
+		title = fmt.Sprint("atof, exponent ", i)
+		testNoCarry(t, title, m1, m2, ATOF_BITS, 64+ATOF_BITS-1-25)
 	}
 
 	for i := 11; i < 70; i++ {
@@ -47,10 +47,10 @@ func TestCarry64(t *testing.T) {
 		m1[1] = invpow10wide[i][0]
 		m2[1] = invpow10wide[i][0] + 1
 
-		t.Log("ftoa, exponent", -i)
-		testNoCarry(t, m1, m2, 25, 64+24-FTOA_BITS)
-		t.Log("atof, exponent", -i)
-		testNoCarry(t, m1, m2, ATOF_BITS, 64+ATOF_BITS-1-25)
+		title := fmt.Sprint("ftoa, exponent ", -i)
+		testNoCarry(t, title, m1, m2, 25, 64+24-FTOA_BITS)
+		title = fmt.Sprint("atof, exponent ", -i)
+		testNoCarry(t, title, m1, m2, ATOF_BITS, 64+ATOF_BITS-1-25)
 	}
 
 	t.Logf("tested multiplier of size %d, shift %d",
@@ -79,11 +79,11 @@ func TestCarry128(t *testing.T) {
 		m2 := pow10wide[i]
 		m2[1]++
 
-		t.Log("ftoa, exponent", i)
-		testNoCarry(t, m1, m2, mantbitsFtoa,
+		title := fmt.Sprint("ftoa, exponent ", i)
+		testNoCarry(t, title, m1, m2, mantbitsFtoa,
 			127+mantbitsFtoa-FTOA_BITS)
-		t.Log("atof, exponent", i)
-		testNoCarry(t, m1, m2, ATOF_BITS,
+		title = fmt.Sprint("atof, exponent ", i)
+		testNoCarry(t, title, m1, m2, ATOF_BITS,
 			127+ATOF_BITS-mantbitsAtof)
 	}
 
@@ -93,11 +93,11 @@ func TestCarry128(t *testing.T) {
 		m1[1]--
 		m2 := invpow10wide[i]
 
-		t.Log("ftoa, exponent", -i)
-		testNoCarry(t, m1, m2, mantbitsFtoa,
+		title := fmt.Sprint("ftoa, exponent ", -i)
+		testNoCarry(t, title, m1, m2, mantbitsFtoa,
 			127+mantbitsFtoa-FTOA_BITS)
-		t.Log("atof, exponent", -i)
-		testNoCarry(t, m1, m2, ATOF_BITS,
+		title = fmt.Sprint("atof, exponent ", -i)
+		testNoCarry(t, title, m1, m2, ATOF_BITS,
 			127+ATOF_BITS-mantbitsAtof)
 	}
 
@@ -111,7 +111,7 @@ func TestCarry128(t *testing.T) {
 // whether k * m1 >> shift == k * m2 >> shift
 // for all k <= 1<<inbits
 //     and shift = 128 + inbits - outbits
-func testNoCarry(t *testing.T, m1, m2 [2]uint64, inbits, shift int) {
+func testNoCarry(t *testing.T, title string, m1, m2 [2]uint64, inbits, shift int) {
 	// The invariant will be broken if we find:
 	//    k * m1 <= K << shift <= k * m2
 	// i.e.
@@ -156,7 +156,7 @@ func testNoCarry(t *testing.T, m1, m2 [2]uint64, inbits, shift int) {
 				continue
 			}
 		}
-		t.Errorf("%d * (0x%016x%016x, 0x%016x%016x) >> %d contains %d...\n",
-			den, m1[0], m1[1], m2[0], m2[1], shift, num)
+		t.Errorf("%s: %d * (0x%016x%016x, 0x%016x%016x) >> %d contains %d...\n",
+			title, den, m1[0], m1[1], m2[0], m2[1], shift, num)
 	}
 }
