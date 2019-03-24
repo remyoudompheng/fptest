@@ -51,18 +51,6 @@ Then the algorithm traverses entirely the tree between these 2 bounds,
 stopping at the depth where integers would overflow the bound `M`.
 This step can be done using finite precision arithmetic only.
 
-## Use cases
-
-Printing float64 with precision X:
-
-- the mantissa bound is `2^53`
-- the digits bound is `10^X`
-
-Parsing a floating-point number with X decimal digits into float64:
-
-- the mantissa bound is `10^X`
-- the digits bound is `2^53`
-
 ## Performance
 
 The Python script takes about 1 minute to enumerate double-precision
@@ -75,6 +63,25 @@ It takes less than a second to enumerate the single-precision
 
 The Go implementation can enumerate an interval of 1 million rational numbers
 in a few milliseconds.
+
+## Available tests
+
+The following torture tests are implemented in Go:
+
+- TestCarry64, TestCarry128: check wide-precision powers of ten for
+  exceptional carries. This is used in the proof of Ryū-like algorithms.
+
+- TestTortureFixed32/64: check edge cases for fixed-precission decimal
+  formatting. The iterators provide the expected answer so it is checked
+  exactly without depending on strconv correctness.
+
+- TestTortureShortest32/64: check edge cases for shortest floating-point
+  formatting. Currently exact verification is not done, instead the test
+  verifies that selected numbers are formatted shorter than their
+  neighbours. The edge cases make it hard to find the correct rounding
+  direction.
+
+Exact midpoints (commonly found when using small exponents) are not tested.
 
 ## References
 

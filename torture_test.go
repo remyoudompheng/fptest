@@ -55,13 +55,13 @@ func TestTortureShortest64(t *testing.T) {
 			difficulty = 64
 		}
 		count = 0
-		for exp := 60; exp < 1024-52; exp++ {
+		for exp := 55; exp < 1024-52; exp++ {
 			roundUp = false
 			AlmostDecimalMidpoint(exp, digits, 53, uint(difficulty), +1, false, do)
 			roundUp = true
 			AlmostDecimalMidpoint(exp, digits, 53, uint(difficulty), -1, false, do)
 		}
-		for exp := 60; exp < 1024+52; exp++ {
+		for exp := 55; exp < 1024+52; exp++ {
 			if exp == 1023+52 {
 				// denormals
 				roundUp = false
@@ -109,7 +109,7 @@ func TestTortureShortest32(t *testing.T) {
 			AlmostDecimalMidpoint(exp, digits, 24, uint(basePrec+2*digits), +1, false, do)
 			AlmostDecimalMidpoint(exp, digits, 24, uint(basePrec+2*digits), -1, false, do)
 		}
-		for exp := 60; exp < 127+23; exp++ {
+		for exp := 10; exp < 127+23; exp++ {
 			if exp == 126+23 {
 				// denormals
 				AlmostDecimalMidpoint(-(exp - 1), digits, 23, uint(basePrec+2*digits), +1, true, do)
