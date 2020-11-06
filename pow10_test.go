@@ -23,7 +23,7 @@ func TestCarry64(t *testing.T) {
 
 	// 35 bits has exactly 1 edge case:
 	// - 13860322284 * 1e-48
-	// 34, 33, 32 bits has the same edge case
+	// 34, 33, 32 bits has the same edge case (3465080571e-48)
 	// 31 bits yields no error
 	const ATOF_BITS = 31
 

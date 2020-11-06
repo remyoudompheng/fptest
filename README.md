@@ -87,6 +87,8 @@ The following torture tests are implemented in Go:
   gives the expected answer without using strconv functions.
 
 Exact midpoints (commonly found when using small exponents) are not tested.
+Small exponents are not tested (|exp| < 55 for float64, |exp| < 10 for
+float32)
 
 ## References
 
