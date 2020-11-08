@@ -108,6 +108,28 @@ func TestRatNext(t *testing.T) {
 	}
 }
 
+func TestRatOverflow(t *testing.T) {
+	n, _ := new(big.Int).SetString("680564733841876926926749214863528034304", 10)
+	d, _ := new(big.Int).SetString("81129638414606681695789005144064000000", 10)
+	// The continued fraction expansion of n/d is:
+	// [8, 2, 1, 1, 2, 1, 10, 3, 1, 3, 4, 1, 39614081257132168796771, 6, 17, 12, 1, 1, 2, 2]
+	// where 39614081257132168796771 does not fit a uint64.
+	// which is between:
+	// [8 2 1 1 2 1 10 3 1 3 4 1 576460752302] = 75557863725833927 / 9007199254731408
+	// [8 2 1 1 2 1 10 3 1 3 4 1] = 131072 / 15625
+	// The value 576460752302 is the largest one making the denominator
+	// fit in 53 bits (9007199254731408 == 0x1fffffffffda90
+	r1, r2 := NewRatFromBig(n, d, 53)
+	num, den := r1.Fraction()
+	if num != 75557863725833927 || den != 9007199254731408 {
+		t.Errorf("lower: got %d/%d, %v", num, den, r1.cf)
+	}
+	num, den = r2.Fraction()
+	if num != 131072 || den != 15625 {
+		t.Errorf("upper: got %d/%d, %v", num, den, r2.cf)
+	}
+}
+
 func BenchmarkNewRatFromBig(b *testing.B) {
 	n, errn := new(big.Int).SetString("717897987691852588770249", 10)
 	d, errd := new(big.Int).SetString("1000000000000000000000000", 10)

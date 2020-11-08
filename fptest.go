@@ -237,10 +237,19 @@ euclid:
 		quoB, remB := new(big.Int), new(big.Int)
 		quoB.DivMod(num, den, remB)
 		if quoB.BitLen() >= 64 {
-			// stop here
+			// Clamp quotient.
 			midCF = append(midCF, r.cf...)
 			midCF = append(midCF, ^uint64(0))
-			break
+			// There is an overflow, use a smaller quo and stop
+			var maxc uint64 = 1<<(maxBits-1) + (1<<(maxBits-1) - 1)
+			maxquo := (maxc - r.d) / r.c
+			r.appendContinued(maxquo)
+			if len(r.cf)%2 == 0 {
+				upper = r.clone()
+			} else {
+				lower = r.clone()
+			}
+			break euclid
 		}
 		quo := quoB.Uint64()
 		newc := quo*r.c + r.d
@@ -340,7 +349,12 @@ func (r *Rat) appendContinued(q uint64) {
 	r.c, r.d = q*r.c+r.d, r.c
 }
 
+// Normalize a continued fraction:
+// replace [a1 ... an, 1] by [a1 ... (an+1)]
 func (r *Rat) normalize() {
+	if len(r.cf) == 1 {
+		return
+	}
 	if k := r.cf[len(r.cf)-1]; k == 1 {
 		r.cf = r.cf[:len(r.cf)-1]
 		r.cf[len(r.cf)-1]++
