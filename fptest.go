@@ -18,7 +18,7 @@ import (
 // 1 / 2^precision.
 func AlmostDecimalMidpoint(e2 int, digits int, mantbits, precision uint, direction int, denormal bool,
 	f func(x float64, n uint64, k int)) {
-	if e2 >= 0 {
+	if e2 > 0 {
 		almostDecimalPos(e2, digits, mantbits, precision, direction, f)
 	} else {
 		almostDecimalNeg(-e2, digits, mantbits, precision, direction, denormal, f)
@@ -27,7 +27,7 @@ func AlmostDecimalMidpoint(e2 int, digits int, mantbits, precision uint, directi
 
 const log2overlog10 = 0.30102999566398114
 
-// almostDecimalPos is AlmostDecimalMidpoint for e2 >= 0.
+// almostDecimalPos is AlmostDecimalMidpoint for e2 > 0.
 func almostDecimalPos(e2 int, digits int, mantbits, precision uint, direction int,
 	f func(x float64, n uint64, k int)) {
 	// Find all rationals n / (2*mant+1) close to 2**(e2-1) / 10**k
@@ -57,12 +57,20 @@ func almostDecimalPos(e2 int, digits int, mantbits, precision uint, direction in
 // the midpoint (mant+1/2)/2**e2 is very close to n/10**k for some integer n.
 func almostDecimalNeg(e2 int, digits int, mantbits, precision uint,
 	direction int, denormals bool, f func(x float64, n uint64, k int)) {
+	// Avoid the case where e10 < 0 below:
+	// we require that 2^mantbits/2^e2 < 10^digits
+	// otherwise it would mean we are looking for (mant+1/2)/2**e2
+	// very close to an integer, which is impossible.
+	if float64(int(mantbits)-e2)*log2overlog10 >= float64(digits) {
+		return
+	}
+
 	// Find all rationals n / (2*mant+1) close to 10**k/2**(e2+1)
 	//
 	// (digits - k) * log(10) == (mantbits - e2) * log(2)
 	e10 := int(float64(e2-int(mantbits))*log2overlog10) + digits
-	if e10 < 0 { // FIXME: avoid this happening
-		e10 = 0
+	if e10 < 0 {
+		panic("impossible")
 	}
 
 	num := big.NewInt(10)

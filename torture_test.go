@@ -20,6 +20,11 @@ func TestTortureShortest64(t *testing.T) {
 	// - the short decimal number itself is very close to x±ulp/2
 	//   so that it is difficult to decide whether D is a valid
 	//   representation of x (ParseFloat(D) == x or x±ulp)
+	//
+	// Cases where D == x±ulp/2 are not emitted by the generator.
+	// They may happen for small values of the exponent, e.g.
+	// - M p+N where M is divisible by 5^N (only for N <= 23)
+	// - M p-N == M*5^N / 10^N can have <= 19 digits for N <= 4
 	count := 0
 	buf0 := make([]byte, 64)
 	buf1 := make([]byte, 64)
@@ -91,13 +96,13 @@ func TestTortureShortest64(t *testing.T) {
 			difficulty = 64
 		}
 		count = 0
-		for exp := 55; exp < 1024-52; exp++ {
+		for exp := 0; exp < 1024-52; exp++ {
 			roundUp = false
 			AlmostDecimalMidpoint(exp, digits, 53, uint(difficulty), +1, false, do)
 			roundUp = true
 			AlmostDecimalMidpoint(exp, digits, 53, uint(difficulty), -1, false, do)
 		}
-		for exp := 55; exp < 1024+52; exp++ {
+		for exp := 1; exp < 1024+52; exp++ {
 			if exp == 1023+52 {
 				// denormals
 				roundUp = false
@@ -181,13 +186,13 @@ func TestTortureShortest32(t *testing.T) {
 	basePrec := 24
 	for digits := 10; digits > 0; digits-- {
 		count = 0
-		for exp := 10; exp <= 127-23; exp++ {
+		for exp := 0; exp <= 127-23; exp++ {
 			roundUp = false
 			AlmostDecimalMidpoint(exp, digits, 24, uint(basePrec+2*digits), +1, false, do)
 			roundUp = true
 			AlmostDecimalMidpoint(exp, digits, 24, uint(basePrec+2*digits), -1, false, do)
 		}
-		for exp := 10; exp <= 127+23; exp++ {
+		for exp := 1; exp <= 127+23; exp++ {
 			if exp == 127+23 {
 				// denormals
 				roundUp = false
