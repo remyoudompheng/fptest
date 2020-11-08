@@ -374,13 +374,13 @@ func TestTortureFixed64(t *testing.T) {
 			difficulty = 64
 		}
 
-		for exp := 40; exp < 1024-52; exp++ {
+		for exp := 0; exp < 1024-52; exp++ {
 			roundUp = true
 			AlmostHalfDecimal(exp, digits, 53, uint(difficulty), +1, false, do)
 			roundUp = false
 			AlmostHalfDecimal(exp, digits, 53, uint(difficulty), -1, false, do)
 		}
-		for exp := 50; exp < 1024+52; exp++ {
+		for exp := 1; exp < 1024+52; exp++ {
 			if exp == 1023+52 {
 				// denormals
 				roundUp = true
@@ -440,13 +440,13 @@ func TestTortureFixed32(t *testing.T) {
 			}
 		}
 
-		for exp := 10; exp <= 127-23; exp++ {
+		for exp := 0; exp <= 127-23; exp++ {
 			roundUp = true
 			AlmostHalfDecimal(exp, digits, 24, uint(prec+2*digits), +1, false, do)
 			roundUp = false
 			AlmostHalfDecimal(exp, digits, 24, uint(prec+2*digits), -1, false, do)
 		}
-		for exp := 10; exp <= 127+23; exp++ {
+		for exp := 1; exp <= 127+23; exp++ {
 			if exp == 127+23 {
 				// denormals
 				roundUp = true
